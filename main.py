@@ -19,16 +19,25 @@ def getNNSDFValue(x, y, nn):
 
 
 def getColor(value):
-    color = [1, 0.5, 0]
-    if value < 0:
-        color = [0, 0.5, 1]
-    value = np.sin(value * 4.) + 0.2
-    value *= 200.
-    if value < 0:
-        value = 0.
-    if value > 255.:
-        value = 255.
-    return color[0] * value, color[1] * value, color[2] * value
+    color2 = (230, 126, 34)
+    color1 = (52, 152, 219)
+    value = max(0, min(value, 1))
+
+    color1 = [color1[0], color1[1], color1[2]]
+    color2 = [color2[0], color2[1], color2[2]]
+
+    if value <= 0.5:
+        factor = value / 0.5
+        r = color1[0] * (1 - factor) + 255 * factor
+        g = color1[1] * (1 - factor) + 255 * factor
+        b = color1[2] * (1 - factor) + 255 * factor
+    else:
+        factor = (value - 0.5) / 0.5
+        r = 255 * (1 - factor) + color2[0] * factor
+        g = 255 * (1 - factor) + color2[1] * factor
+        b = 255 * (1 - factor) + color2[2] * factor
+
+    return (r, g, b)
 
 
 def createDataset():
@@ -53,15 +62,10 @@ def main():
 
     nn = NeuralNet([2, 10, 10, 1])
     X, Y = createDataset()
+
     nn.setup_training(X, Y)
-    nn.iteration_training(1000)
-
-    X, y = make_moons(n_samples=100, noise=0.1, random_state=21)
-    y = y.reshape((y.shape[0], 1))  # from a big array to a multiples little arrays
-
-    nn = NeuralNet([2, 6, 6, 1])
-    nn.setup_training(X, y)
     nn.iteration_training(10)
+
 
 
     running = True
@@ -81,9 +85,18 @@ def main():
                 rect = pygame.Rect(col * 6 + 700, row * 6 + 300, 6, 6)
                 pygame.draw.rect(screen, color, rect)
                 value = getNNSDFValue((row / 25.0 - 1.) * 10., (col / 25.0 - 1.) * 10., nn)
+                if np.isnan(value):
+                    value = 0
                 color = getColor(value)
                 rect = pygame.Rect(col * 6 + 200, row * 6 + 300, 6, 6)
                 pygame.draw.rect(screen, color, rect)
+
+        for i in range(X.shape[0]):
+            x = X[i][0]
+            y = X[i][1]
+
+            color = getColor(Y[i])
+            pygame.draw.circle(screen, color, (350 + x * 15, 450 + y * 15), 3)
 
         pygame.display.flip()
         clock.tick(60)

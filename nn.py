@@ -13,6 +13,7 @@ class NeuralNet:
         self._X = None
         self._learning_rate = 1
         self._y = None
+        self.activation = []
         self.set_layers()
 
     def set_layers(self):
@@ -22,6 +23,7 @@ class NeuralNet:
         for i in range(len(self._layers) - 1):
             self._W.append(np.random.uniform(-1, 1, (self._layers[i], self._layers[i + 1])))  # first one, is the len of previous layer, second one is the len of layer
             self._b.append(np.random.uniform(-1, 1, (self._layers[i + 1])))
+            self.activation.append(self.activation_sigmoid)
 
     def set_wb_from_1D(self, datas):
         i = 0
@@ -50,6 +52,18 @@ class NeuralNet:
     def activation_sigmoid(self, Z):
         return 1 / (1 + np.exp(-Z))
 
+    def activation_linear(self, Z):
+        return Z
+
+    def activation_tanh(self, Z):
+        return np.tanh(Z)
+
+    def activation_relu(self, Z):
+        return np.maximum(0, Z)
+
+    def activation_binary_step(self, Z):
+        return np.where(Z >= 0, 1, 0)
+
     # ---------- losses -------------
 
     def MSE(self, y, yy):
@@ -64,17 +78,18 @@ class NeuralNet:
 
     # -------------------------------
 
-    def get_outputs(self, W, b, X):
+    def get_outputs(self, W, b, X, activation_function):
         # Z.shape = n x number of neuron
         Z = X.dot(W) + b  # dot make a*w1, a*w2, a*w3... for all pair of inputs
+
         # this return a matrice of all the outputs, for all set of inputs
-        return self.activation_sigmoid(Z)
+        return activation_function(Z)
 
     def forward_propagation(self, X0):
         A = []
         current_input = X0
         for i in range(len(self._W)):
-            A.append(self.get_outputs(self._W[i], self._b[i], current_input))  # n x lenWi
+            A.append(self.get_outputs(self._W[i], self._b[i], current_input, self.activation[i]))  # n x lenWi
             current_input = A[i]
         return A
 
@@ -103,6 +118,7 @@ class NeuralNet:
             self.back_propagation(X0, A, learning_rate, y)
 
     # setup a training so the nn will be able to execute iterations non-continuously
+    # the dimension has to be (100, 1) for exemple. (100 is the number of samples, 1 is the number of features)
     def setup_training(self, X0, y, learning_rate=0.2):
         self._X = X0
         self._y = y
