@@ -15,13 +15,15 @@ class NeuralNet:
         self._y = None
         self.activation = []
         self.set_layers()
+        self.lastMSE = -1
 
     def set_layers(self):
         self._W = []
         self._b = []
 
         for i in range(len(self._layers) - 1):
-            self._W.append(np.random.uniform(-1, 1, (self._layers[i], self._layers[i + 1])))  # first one, is the len of previous layer, second one is the len of layer
+            self._W.append(np.random.uniform(-1, 1, (self._layers[i], self._layers[
+                i + 1])))  # first one, is the len of previous layer, second one is the len of layer
             self._b.append(np.random.uniform(-1, 1, (self._layers[i + 1])))
             self.activation.append(self.activation_sigmoid)
 
@@ -46,7 +48,6 @@ class NeuralNet:
                 wb.append(self._b[l][b0])
         return wb
 
-
     # ----- activation function -----
 
     def activation_sigmoid(self, Z):
@@ -67,7 +68,7 @@ class NeuralNet:
     # ---------- losses -------------
 
     def MSE(self, y, yy):
-        r = np.sum((y - yy)**2)
+        r = np.sum((y - yy) ** 2)
         return r / len(y)
 
     def cross_entropy(self, A, l):
@@ -93,7 +94,7 @@ class NeuralNet:
             current_input = A[i]
         return A
 
-    def back_propagation(self, X0, Abis, learning_rate, y):
+    def back_propagation(self, X0, Abis, y):
         A = Abis.copy()
         A.insert(0, X0)
 
@@ -103,8 +104,8 @@ class NeuralNet:
         L = (y - A[-1])  # last iteration
         for i in reversed(range(len(self._W))):
             E = self.cross_entropy(A[i + 1], L)  # n x nb neurons this layer
-            self._W[i] = self._W[i] + learning_rate * A[i].T.dot(E)  # update the weights
-            self._b[i] = self._b[i] + learning_rate * E.mean()
+            self._W[i] = self._W[i] + self._learning_rate * A[i].T.dot(E)  # update the weights
+            self._b[i] = self._b[i] + self._learning_rate * E.mean()
             L = E.dot(self._W[i].T)  # n x nb neurons this layer
 
     # ------------- training -------------
@@ -112,10 +113,9 @@ class NeuralNet:
     # make a whole training in one time
     def train(self, X0, y, learning_rate=0.2, nb_iter=1000):
         # there is no weights and bias for layer 0, because it is the layer of the inputs
-        for i in range(nb_iter):
-            # the matrixes allows only one matrix calculus for one iteration
-            A = self.forward_propagation(X0)
-            self.back_propagation(X0, A, learning_rate, y)
+        self._learning_rate = learning_rate
+        self.iteration_training(nb_iter)
+
 
     # setup a training so the nn will be able to execute iterations non-continuously
     # the dimension has to be (100, 1) for exemple. (100 is the number of samples, 1 is the number of features)
@@ -128,6 +128,19 @@ class NeuralNet:
     def iteration_training(self, nb_iter=1):
         for i in range(nb_iter):
             A = self.forward_propagation(self._X)
-            self.back_propagation(self._X, A, self._learning_rate, self._y)
+            self.back_propagation(self._X, A, self._y)
+            self.lastMSE = self.MSE(self._y, A[-1])
+            if self._learning_rate > 0.01:
+                self._learning_rate = self._learning_rate * 0.999
 
     # ------------------------------------
+
+    def solve(self, x, y):
+        x = np.array([x, y])
+        A = self.forward_propagation(x)
+        return A[-1][0]
+
+    def getLoss(self):
+        A = self.forward_propagation(self._X)
+        loss = self.MSE(self._y, A[-1])
+        return loss
