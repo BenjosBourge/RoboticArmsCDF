@@ -16,6 +16,7 @@ class NeuralNet:
         self.activation = []
         self.set_layers()
         self.lastMSE = -1
+        self._decay = 0.999
 
     def set_layers(self):
         self._W = []
@@ -113,16 +114,17 @@ class NeuralNet:
     # make a whole training in one time
     def train(self, X0, y, learning_rate=0.2, nb_iter=1000):
         # there is no weights and bias for layer 0, because it is the layer of the inputs
-        self._learning_rate = learning_rate
+        self.setup_training(X0, y, learning_rate, 1.)
         self.iteration_training(nb_iter)
 
 
     # setup a training so the nn will be able to execute iterations non-continuously
     # the dimension has to be (100, 1) for exemple. (100 is the number of samples, 1 is the number of features)
-    def setup_training(self, X0, y, learning_rate=0.2):
+    def setup_training(self, X0, y, learning_rate=0.2, decay=0.999):
         self._X = X0
         self._y = y
         self._learning_rate = learning_rate
+        self._decay = decay
 
     # do an iteration of training
     def iteration_training(self, nb_iter=1):
@@ -131,7 +133,7 @@ class NeuralNet:
             self.back_propagation(self._X, A, self._y)
             self.lastMSE = self.MSE(self._y, A[-1])
             if self._learning_rate > 0.01:
-                self._learning_rate = self._learning_rate * 0.999
+                self._learning_rate = self._learning_rate * self._decay
 
     # ------------------------------------
 
