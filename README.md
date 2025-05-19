@@ -1,6 +1,6 @@
 # Neural Engine
 
-Welcome to **Neural Engine** — a modular testing environment for experimenting with neural networks and optimization algorithms.
+Welcome to **Neural Engine**: a little environment for experimenting with neural networks and optimization algorithms.
 
 ## Overview
 
@@ -10,8 +10,8 @@ This repository provides a framework where various components interact to simula
 
 There are two main types of objects that interact:
 
-- **Solver** – Responsible for training and producing results.
-- **Displayer** – Visualizes the output of a Solver.
+- **Solver**: Responsible for training and producing results.
+- **Displayer**: Visualizes the output of a Solver.
 
 For instance, the `Displayer` takes a `Solver` and renders the results of its training.
 
