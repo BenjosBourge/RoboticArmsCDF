@@ -12,7 +12,7 @@ class NeuralNet:
         self._b = []
         self._X = None
         self._learning_rate = 1
-        self._y = None
+        self._Y = None
         self.activation = []
         self.set_layers()
         self.lastMSE = -1
@@ -122,7 +122,7 @@ class NeuralNet:
     # the dimension has to be (100, 1) for exemple. (100 is the number of samples, 1 is the number of features)
     def setup_training(self, X0, y, learning_rate=0.2, decay=0.999):
         self._X = X0
-        self._y = y
+        self._Y = y
         self._learning_rate = learning_rate
         self._decay = decay
 
@@ -130,12 +130,18 @@ class NeuralNet:
     def iteration_training(self, nb_iter=1):
         for i in range(nb_iter):
             A = self.forward_propagation(self._X)
-            self.back_propagation(self._X, A, self._y)
-            self.lastMSE = self.MSE(self._y, A[-1])
+            self.back_propagation(self._X, A, self._Y)
+            self.lastMSE = self.MSE(self._Y, A[-1])
             if self._learning_rate > 0.01:
                 self._learning_rate = self._learning_rate * self._decay
 
     # ------------------------------------
+
+    def copy(self):
+        nn = NeuralNet(self._layers)
+        nn.set_wb_from_1D(self.get_wb_as_1D())
+        nn.setup_training(self._X, self._Y, self._learning_rate, self._decay)
+        return nn
 
     def solve(self, x, y):
         x = np.array([x, y])
@@ -144,5 +150,5 @@ class NeuralNet:
 
     def getLoss(self):
         A = self.forward_propagation(self._X)
-        loss = self.MSE(self._y, A[-1])
+        loss = self.MSE(self._Y, A[-1])
         return loss

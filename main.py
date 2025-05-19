@@ -1,16 +1,11 @@
-from numpy.random.mtrand import random
-
-import nn
 import pygame
-import numpy as np
 from sklearn.datasets import *
-from sklearn.metrics import accuracy_score
 
-from BatchNN import BatchNeuralNetwork
-from nn import NeuralNet
-import BatchNN
+from Solver.BatchNN import BatchNeuralNetwork
+from Solver.NeuralNetwork import NeuralNet
+from Solver.ParticleSwarmAlgorithm import PSO
 
-import NeuralScreen
+from Displayer import NeuralScreen
 
 
 def main():
@@ -19,19 +14,24 @@ def main():
     pygame.display.set_caption("Grid of Squares")
     clock = pygame.time.Clock()
 
-    nn = NeuralNet([2, 10, 10, 1])
+    nn = NeuralNet([2, 25, 25, 1])
     bnn = BatchNeuralNetwork([2, 25, 25, 1])
 
-    X, Y = make_circles(n_samples=100, noise=0.1)
-    X = X * 4
+    X, Y = make_circles(n_samples=200, noise=0.1)
+    for i in range(X.shape[0]):
+        if Y[i] == 0:
+            X[i] *= 4
+        else:
+            X[i] *= 2
     Y = Y.reshape((Y.shape[0], 1))
-    #nn.setup_training(X, Y, learning_rate=0.3, decay=0.999)
-    bnn.set_training_data(X, Y, batch_size=10, learning_rate=0.3, decay=0.999)
-    #nn.iteration_training(1)
-    bnn.iteration_training(1)
 
-    #screen_1 = NeuralScreen.NeuralScreen(400, 200, nn)
-    screen_2 = NeuralScreen.NeuralScreen(800, 200, bnn)
+    nn.setup_training(X, Y, learning_rate=0.3, decay=0.999)
+    bnn.setup_training(X, Y, batch_size=20, learning_rate=0.3, decay=0.999)
+    nn.iteration_training(1)
+    bnn.iteration_training(1)
+    pso = PSO(20, bnn)
+
+    screen_1 = NeuralScreen.NeuralScreen(400, 200, bnn)
 
     running = True
     while running:
@@ -43,11 +43,10 @@ def main():
 
         #nn.iteration_training(10)
         bnn.iteration_training(10)
+        #pso.iteration_training(1)
 
-        #screen_1.draw(screen)
-        #screen_1.draw_datas(screen, X, Y)
-        screen_2.draw(screen)
-        screen_2.draw_datas(screen, X, Y)
+        screen_1.draw(screen)
+        screen_1.draw_datas(screen, X, Y)
 
         pygame.display.flip()
         clock.tick(60)
