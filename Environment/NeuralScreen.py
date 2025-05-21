@@ -10,6 +10,9 @@ class NeuralScreen:
         self.solver = solver
         self.sdfMode = False
 
+    def update(self, delta_time):
+        pass
+
     def setSDFMode(self, mode):
         self.sdfMode = mode
 
@@ -62,7 +65,6 @@ class NeuralScreen:
         font = pygame.font.Font(None, 36)
         text_surface = font.render(str(self.solver.getLoss()), True, (255, 255, 255))
         screen.blit(text_surface, (self.x, self.y - 25))
-
 
     def draw_datas(self, screen, datas, values):
         for i in range(datas.shape[0]):

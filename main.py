@@ -6,7 +6,8 @@ from Solver.NeuralNetwork import NeuralNet
 from Solver.GroundTrueSDF import GroundTrueSDF
 from Solver.ParticleSwarmAlgorithm import PSO
 
-from Displayer import NeuralScreen
+from Environment import NeuralScreen
+from Environment import Scara
 
 
 def main():
@@ -30,12 +31,17 @@ def main():
     groundTrueSDF = GroundTrueSDF()
     groundTrueSDF.setCircle(1.5)
 
-    # Displayers
-    screen_1 = NeuralScreen.NeuralScreen(300, 200, groundTrueSDF)
-    screen_2 = NeuralScreen.NeuralScreen(700, 200, nn)
-    screen_1.setSDFMode(True)
+    pso1 = PSO(10, nn)
+    pso1.setup_training(X, Y)
+
+    pso2 = PSO(10, pso1)
+    pso2.setup_training(X, Y)
+
+    # Environment
+    screen_1 = Scara.Scara(200, 300, groundTrueSDF)
 
     running = True
+    deltatime = 0.
     while running:
         screen.fill((0, 0, 0))  # Background color
 
@@ -45,13 +51,11 @@ def main():
 
         nn.iteration_training(10)
 
+        screen_1.update(deltatime)
         screen_1.draw(screen)
 
-        screen_2.draw(screen)
-        screen_2.draw_datas(screen, X, Y)
-
         pygame.display.flip()
-        clock.tick(60)
+        deltatime = clock.tick(60) / 1000.0  # Convert milliseconds to seconds
 
     pygame.quit()
 

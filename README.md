@@ -24,7 +24,7 @@ Available solvers include:
 - `NeuralNetwork`: a backpropagation neural network.
 - `BatchNeuralNetwork`: same as `NeuralNetwork`, but with batch training.
 - `ParticleSwarmAlgorithm`: Use a PSO to solve a Neural Network or a BatchNeuralNetwork.
-- `GroundTrueSDF`: showing ground truth of SDF without solving because already perfect.
+- `GroundTrueSDF`: showing ground truth of SDF with parameters that can change.
 
 Each solver must implement the following methods:
 
@@ -37,14 +37,28 @@ def solve(self, x, y):
 
 def getLoss(self):
     """Return the average loss computed using the training dataset."""
+
+def get_wb_as_1D(self):
+    """Return the weights and biases of the solver as a 1D array."""
+
+def set_wb_from_1D(self, wb):
+    """Set the weights and biases of the solver from a 1D array."""
 ```
 
 so the displayer can call them to render the results.
 
+
+### Scara Solvers
+
+The Scara solvers are a specific type of solver that are made to solve kineamtics problem for the scara arm.
+
 ---
 
-## Displayers
+## Environment
 
-Available displayers include:
+Environments are used to test solvers. They can be a way to display simple results or to resolve a visual problem.
+
+Available environment include:
 
 - `NeuralScreen`: a screen that shows the results of a solver. Can be set to show as SDF.
+- `Scara`: a environment to test Scara robots and algorithms to move it.

@@ -68,6 +68,12 @@ class GroundTrueSDF:
         self._params = [radius, width]
 
     # solver function needed
+    def copy(self):
+        gts = GroundTrueSDF()
+        gts._func = self._func
+        gts._params = self._params.copy()
+        return gts
+
     def solve(self, x, y):
         if self._func is None:
             return 0
@@ -75,3 +81,9 @@ class GroundTrueSDF:
 
     def getLoss(self):
         return 0
+
+    def get_wb_as_1D(self):
+        return np.array(self._params).flatten()
+
+    def set_wb_from_1D(self, datas):
+        self._params = datas

@@ -78,6 +78,12 @@ class PSO:
 
 
     # solver function needed
+    def copy(self):
+        pso = PSO(self.num_particles, self.solver)
+        pso.global_best_value = self.global_best_value
+        pso.global_best_position = self.global_best_position
+        return pso
+
     def solve(self, x, y):
         nn = self.solver.copy()
         nn.set_wb_from_1D(self.global_best_position)
@@ -86,6 +92,12 @@ class PSO:
     def getLoss(self):
         nn = self.solver.copy()
         nn.set_wb_from_1D(self.global_best_position)
-        print(self.global_best_value)
-        print(nn.getLoss())
         return nn.getLoss()
+
+    # These functions were created to add the possibilities to set a pso as solver for another pso
+    def get_wb_as_1D(self):
+        return self.global_best_position
+
+    def set_wb_from_1D(self, datas):
+        self.global_best_position = datas
+        self.global_best_value = self.getLoss()
