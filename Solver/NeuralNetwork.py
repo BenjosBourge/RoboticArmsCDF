@@ -5,7 +5,7 @@ from sklearn.datasets import *
 from sklearn.metrics import accuracy_score
 
 
-class NeuralNet:
+class NeuralNetwork:
     def __init__(self, layers):
         self.layers = layers
         self.W = []
@@ -138,7 +138,7 @@ class NeuralNet:
     # ------------------------------------
 
     def copy(self):
-        nn = NeuralNet(self.layers)
+        nn = NeuralNetwork(self.layers)
         nn.set_wb_from_1D(self.get_wb_as_1D())
         nn.setup_training(self.X, self.Y, self.learning_rate, self.decay)
         return nn

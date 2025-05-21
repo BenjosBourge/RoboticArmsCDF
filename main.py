@@ -1,8 +1,8 @@
 import pygame
 from sklearn.datasets import *
 
-from Solver.BatchNN import BatchNeuralNetwork
-from Solver.NeuralNetwork import NeuralNet
+from Solver.BatchNeuralNetwork import BatchNeuralNetwork
+from Solver.NeuralNetwork import NeuralNetwork
 from Solver.GroundTrueSDF import GroundTrueSDF
 from Solver.ParticleSwarmAlgorithm import PSO
 
@@ -30,12 +30,6 @@ def main():
     nn.setup_training(X, Y)
     groundTrueSDF = GroundTrueSDF()
     groundTrueSDF.setCircle(1.5)
-
-    pso1 = PSO(10, nn)
-    pso1.setup_training(X, Y)
-
-    pso2 = PSO(10, pso1)
-    pso2.setup_training(X, Y)
 
     # Environment
     screen_1 = Scara.Scara(200, 300, groundTrueSDF)

@@ -1,8 +1,5 @@
 import numpy as np
 
-from Solver.NeuralNetwork import NeuralNet
-
-
 # func to make sdf closer to GLSL
 
 def vec2(x, y):

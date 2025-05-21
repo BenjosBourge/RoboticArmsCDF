@@ -1,8 +1,5 @@
 import numpy as np
 
-from Solver.NeuralNetwork import NeuralNet
-
-
 class Particle:
     def __init__(self, solver):
         self.solver = solver.copy()

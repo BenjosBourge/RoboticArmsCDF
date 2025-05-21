@@ -1,11 +1,11 @@
 import numpy as np
 
-from Solver.NeuralNetwork import NeuralNet
+from Solver.NeuralNetwork import NeuralNetwork
 
 # This is a wrapper of the NeuralNet class to allow batch training
 class BatchNeuralNetwork:
     def __init__(self, layers, refresh_batch=False):
-        self.nn = NeuralNet(layers)
+        self.nn = NeuralNetwork(layers)
         self.layers = layers
         self.batch_size = 10
         self.datas_index = []

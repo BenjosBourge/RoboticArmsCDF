@@ -17,7 +17,24 @@ For instance, the `Displayer` takes a `Solver` and renders the results of its tr
 
 ---
 
+## Environment
+
+Environments are objects that makes the main part of the engine. Environments can use solvers to solve problems.
+Usually, the environment will be able to use every solver, but in certain cases, it will be limited to specific ones.
+
+Available environment include:
+
+- `NeuralScreen`: a screen that shows the results of a solver. The display can be changed.
+- `Scara`: a environment to test Scara robots and algorithms to move it.
+
+
+---
+
+
 ## Solvers
+
+A solver is an object that resolve a simple problem of 2 inputs and 1 output. It can be trained to solve it, or
+just used as made.
 
 Available solvers include:
 
@@ -45,20 +62,6 @@ def set_wb_from_1D(self, wb):
     """Set the weights and biases of the solver from a 1D array."""
 ```
 
-so the displayer can call them to render the results.
-
-
-### Scara Solvers
-
-The Scara solvers are a specific type of solver that are made to solve kineamtics problem for the scara arm.
+so the environment can call them to use the solvers.
 
 ---
-
-## Environment
-
-Environments are used to test solvers. They can be a way to display simple results or to resolve a visual problem.
-
-Available environment include:
-
-- `NeuralScreen`: a screen that shows the results of a solver. Can be set to show as SDF.
-- `Scara`: a environment to test Scara robots and algorithms to move it.
