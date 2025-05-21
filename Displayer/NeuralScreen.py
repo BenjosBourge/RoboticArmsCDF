@@ -8,10 +8,14 @@ class NeuralScreen:
         self.y = y
         self.range = 10
         self.solver = solver
+        self.sdfMode = False
+
+    def setSDFMode(self, mode):
+        self.sdfMode = mode
 
     def getColor(self, value):
-        color1 = (230, 126, 34)
-        color2 = (52, 152, 219)
+        color2 = (230, 126, 34)
+        color1 = (52, 152, 219)
         value = max(0, min(value, 1))
 
         color1 = [color1[0], color1[1], color1[2]]
@@ -48,8 +52,9 @@ class NeuralScreen:
         for row in range(51):
             for col in range(51):
                 value = self.solver.solve((col / 25.0 - 1.) * 10., (row / 25.0 - 1.) * 10.)
-                if np.isnan(value):
-                    value = 0
+                if self.sdfMode:
+                    value = int(value) / 10.
+                    value = (value + 1) / 2.0
                 color = self.getColor(value)
                 rect = pygame.Rect(col * 6 + self.x, row * 6 + self.y, 6, 6)
                 pygame.draw.rect(screen, color, rect)

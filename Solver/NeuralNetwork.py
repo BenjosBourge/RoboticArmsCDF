@@ -7,46 +7,46 @@ from sklearn.metrics import accuracy_score
 
 class NeuralNet:
     def __init__(self, layers):
-        self._layers = layers
-        self._W = []
-        self._b = []
-        self._X = None
-        self._learning_rate = 1
-        self._Y = None
+        self.layers = layers
+        self.W = []
+        self.b = []
+        self.X = None
+        self.learning_rate = 1
+        self.Y = None
         self.activation = []
         self.set_layers()
         self.lastMSE = -1
-        self._decay = 0.999
+        self.decay = 0.999
 
     def set_layers(self):
-        self._W = []
-        self._b = []
+        self.W = []
+        self.b = []
 
-        for i in range(len(self._layers) - 1):
-            self._W.append(np.random.uniform(-1, 1, (self._layers[i], self._layers[
+        for i in range(len(self.layers) - 1):
+            self.W.append(np.random.uniform(-1, 1, (self.layers[i], self.layers[
                 i + 1])))  # first one, is the len of previous layer, second one is the len of layer
-            self._b.append(np.random.uniform(-1, 1, (self._layers[i + 1])))
+            self.b.append(np.random.uniform(-1, 1, (self.layers[i + 1])))
             self.activation.append(self.activation_sigmoid)
 
     def set_wb_from_1D(self, datas):
         i = 0
-        for l in range(len(self._layers) - 1):
-            for w0 in range(len(self._W[l])):
-                for w1 in range(len(self._W[l][w0])):
-                    self._W[l][w0][w1] = datas[i]
+        for l in range(len(self.layers) - 1):
+            for w0 in range(len(self.W[l])):
+                for w1 in range(len(self.W[l][w0])):
+                    self.W[l][w0][w1] = datas[i]
                     i += 1
-            for b0 in range(len(self._b[l])):
-                self._b[l][b0] = b0
+            for b0 in range(len(self.b[l])):
+                self.b[l][b0] = b0
                 i += 1
 
     def get_wb_as_1D(self):
         wb = []
-        for l in range(len(self._layers) - 1):
-            for w0 in range(len(self._W[l])):
-                for w1 in range(len(self._W[l][w0])):
-                    wb.append(self._W[l][w0][w1])
-            for b0 in range(len(self._b[l])):
-                wb.append(self._b[l][b0])
+        for l in range(len(self.layers) - 1):
+            for w0 in range(len(self.W[l])):
+                for w1 in range(len(self.W[l][w0])):
+                    wb.append(self.W[l][w0][w1])
+            for b0 in range(len(self.b[l])):
+                wb.append(self.b[l][b0])
         return wb
 
     # ----- activation function -----
@@ -90,8 +90,8 @@ class NeuralNet:
     def forward_propagation(self, X0):
         A = []
         current_input = X0
-        for i in range(len(self._W)):
-            A.append(self.get_outputs(self._W[i], self._b[i], current_input, self.activation[i]))  # n x lenWi
+        for i in range(len(self.W)):
+            A.append(self.get_outputs(self.W[i], self.b[i], current_input, self.activation[i]))  # n x lenWi
             current_input = A[i]
         return A
 
@@ -103,11 +103,11 @@ class NeuralNet:
         # and W containing n - 1 weights
 
         L = (y - A[-1])  # last iteration
-        for i in reversed(range(len(self._W))):
+        for i in reversed(range(len(self.W))):
             E = self.cross_entropy(A[i + 1], L)  # n x nb neurons this layer
-            self._W[i] = self._W[i] + self._learning_rate * A[i].T.dot(E)  # update the weights
-            self._b[i] = self._b[i] + self._learning_rate * E.mean()
-            L = E.dot(self._W[i].T)  # n x nb neurons this layer
+            self.W[i] = self.W[i] + self.learning_rate * A[i].T.dot(E)  # update the weights
+            self.b[i] = self.b[i] + self.learning_rate * E.mean()
+            L = E.dot(self.W[i].T)  # n x nb neurons this layer
 
     # ------------- training -------------
 
@@ -121,26 +121,26 @@ class NeuralNet:
     # setup a training so the nn will be able to execute iterations non-continuously
     # the dimension has to be (100, 1) for exemple. (100 is the number of samples, 1 is the number of features)
     def setup_training(self, X0, y, learning_rate=0.2, decay=0.999):
-        self._X = X0
-        self._Y = y
-        self._learning_rate = learning_rate
-        self._decay = decay
+        self.X = X0
+        self.Y = y
+        self.learning_rate = learning_rate
+        self.decay = decay
 
     # do an iteration of training
     def iteration_training(self, nb_iter=1):
         for i in range(nb_iter):
-            A = self.forward_propagation(self._X)
-            self.back_propagation(self._X, A, self._Y)
-            self.lastMSE = self.MSE(self._Y, A[-1])
-            if self._learning_rate > 0.01:
-                self._learning_rate = self._learning_rate * self._decay
+            A = self.forward_propagation(self.X)
+            self.back_propagation(self.X, A, self.Y)
+            self.lastMSE = self.MSE(self.Y, A[-1])
+            if self.learning_rate > 0.01:
+                self.learning_rate = self.learning_rate * self.decay
 
     # ------------------------------------
 
     def copy(self):
-        nn = NeuralNet(self._layers)
+        nn = NeuralNet(self.layers)
         nn.set_wb_from_1D(self.get_wb_as_1D())
-        nn.setup_training(self._X, self._Y, self._learning_rate, self._decay)
+        nn.setup_training(self.X, self.Y, self.learning_rate, self.decay)
         return nn
 
     def solve(self, x, y):
@@ -149,6 +149,6 @@ class NeuralNet:
         return A[-1][0]
 
     def getLoss(self):
-        A = self.forward_propagation(self._X)
-        loss = self.MSE(self._Y, A[-1])
+        A = self.forward_propagation(self.X)
+        loss = self.MSE(self.Y, A[-1])
         return loss
