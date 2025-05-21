@@ -11,9 +11,9 @@ This repository provides a framework where various components interact to simula
 There are two main types of objects that interact:
 
 - **Solver**: Responsible for training and producing results.
-- **Displayer**: Visualizes the output of a Solver.
+- **Environment**: Visualizes the output of a Solver.
 
-For instance, the `Displayer` takes a `Solver` and renders the results of its training.
+For instance, the `Environment` takes a `Solver` and renders the results of its training or applies it to a problem.
 
 ---
 
