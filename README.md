@@ -21,9 +21,10 @@ For instance, the `Displayer` takes a `Solver` and renders the results of its tr
 
 Available solvers include:
 
-- `NeuralNetwork`
-- `BatchNeuralNetwork`
-- `ParticleSwarmAlgorithm`
+- `NeuralNetwork`: a backpropagation neural network.
+- `BatchNeuralNetwork`: same as `NeuralNetwork`, but with batch training.
+- `ParticleSwarmAlgorithm`: Use a PSO to solve a Neural Network or a BatchNeuralNetwork.
+- `GroundTrueSDF`: showing ground truth of SDF without solving because already perfect.
 
 Each solver must implement the following methods:
 
@@ -38,10 +39,12 @@ def getLoss(self):
     """Return the average loss computed using the training dataset."""
 ```
 
+so the displayer can call them to render the results.
+
 ---
 
 ## Displayers
 
 Available displayers include:
 
-- `NeuralScreen`
+- `NeuralScreen`: a screen that shows the results of a solver. Can be set to show as SDF.
