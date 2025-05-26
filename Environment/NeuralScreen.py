@@ -1,14 +1,20 @@
 
 import pygame
 import numpy as np
+import math
 
 class NeuralScreen:
     def __init__(self, x, y, solver):
         self.x = x
         self.y = y
-        self.range = 10
+        self.range = 10.
         self.solver = solver
         self.sdfMode = False
+        self.step_value = 0.2
+        self.show_loss = True
+        self.show_range = False
+        self.font = pygame.font.Font(None, 36)
+        self.font_range = pygame.font.Font(None, 24)
 
     def update(self, delta_time):
         pass
@@ -54,17 +60,30 @@ class NeuralScreen:
     def draw(self, screen):
         for row in range(51):
             for col in range(51):
-                value = self.solver.solve((col / 25.0 - 1.) * 10., (row / 25.0 - 1.) * 10.)
+                value = self.solver.solve((col / 25.0 - 1.) * self.range, (row / 25.0 - 1.) * -1 * self.range)
                 if self.sdfMode:
-                    value = int(value) / 10.
+                    if value < 0:
+                        value = math.floor(-value / 0.01) * 2. * -1
+                    else:
+                        value = math.floor(value / self.step_value) * 0.2
                     value = (value + 1) / 2.0
                 color = self.getColor(value)
                 rect = pygame.Rect(col * 6 + self.x, row * 6 + self.y, 6, 6)
                 pygame.draw.rect(screen, color, rect)
 
-        font = pygame.font.Font(None, 36)
-        text_surface = font.render(str(self.solver.getLoss()), True, (255, 255, 255))
-        screen.blit(text_surface, (self.x, self.y - 25))
+        if self.show_loss:
+            text_surface = self.font.render(str(self.solver.getLoss()), True, (255, 255, 255))
+            screen.blit(text_surface, (self.x, self.y - 25))
+
+        if self.show_range:
+            text_surface = self.font_range.render(f"{self.range:.2f}", True, (255, 255, 255))
+            screen.blit(text_surface, (self.x - 40, self.y - 5))
+            text_surface = self.font_range.render(f"{-self.range:.2f}", True, (255, 255, 255))
+            screen.blit(text_surface, (self.x - 40, self.y + 306 - 15))
+            text_surface = self.font_range.render(f"{self.range:.2f}", True, (255, 255, 255))
+            screen.blit(text_surface, (self.x + 306 - 20, self.y + 306 + 10))
+            text_surface = self.font_range.render(f"{-self.range:.2f}", True, (255, 255, 255))
+            screen.blit(text_surface, (self.x - 5, self.y + 306 + 10))
 
     def draw_datas(self, screen, datas, values):
         for i in range(datas.shape[0]):

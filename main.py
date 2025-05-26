@@ -5,6 +5,7 @@ from Solver.BatchNeuralNetwork import BatchNeuralNetwork
 from Solver.NeuralNetwork import NeuralNetwork
 from Solver.GroundTrueSDF import GroundTrueSDF
 from Solver.ParticleSwarmAlgorithm import PSO
+from Solver.ScaraSDF import ScaraSDF
 
 from Environment import NeuralScreen
 from Environment import Scara
@@ -26,13 +27,10 @@ def main():
     Y = Y.reshape((Y.shape[0], 1))
 
     # Solvers
-    nn = BatchNeuralNetwork([2, 35, 35, 1])
-    nn.setup_training(X, Y)
-    groundTrueSDF = GroundTrueSDF()
-    groundTrueSDF.setCircle(1.5)
+    scaraSDF = ScaraSDF()
 
     # Environment
-    screen_1 = Scara.Scara(200, 300, groundTrueSDF)
+    screen_1 = Scara.Scara(200, 300, scaraSDF)
 
     running = True
     deltatime = 0.
@@ -42,8 +40,6 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
-        nn.iteration_training(10)
 
         screen_1.update(deltatime)
         screen_1.draw(screen)
