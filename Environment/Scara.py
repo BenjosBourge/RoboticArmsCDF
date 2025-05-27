@@ -21,7 +21,12 @@ class Scara:
         self.screen.step_value = 0.6
         self.spheres = []
         self.selected_sphere = -1
+        self.desired_angle_1 = 0
+        self.desired_angle_2 = 0
+
         self.add_sphere(2.5, 2.5, 0.5)  # (x, y, radius)
+        self.add_sphere(-2.5, -2.5, 0.2)  # (x, y, radius)
+
 
 
     def add_sphere(self, x, y, radius):
@@ -46,9 +51,13 @@ class Scara:
                 y = (pos[1] - (self.y + 153)) / 150
                 x = x * np.pi
                 y = y * np.pi * -1
-                self.angle_1 = x
-                self.angle_2 = y
-            elif self.x + 306 < pos[0] < self.x + 712 and self.y < pos[1] < self.y + 306:
+                if pygame.key.get_pressed()[pygame.K_LSHIFT] or pygame.key.get_pressed()[pygame.K_RSHIFT]:
+                    self.desired_angle_1 = x
+                    self.desired_angle_2 = y
+                else:
+                    self.angle_1 = x
+                    self.angle_2 = y
+            elif self.x + 306 < pos[0] < self.x + 612 and self.y < pos[1] < self.y + 306:
                 if self.selected_sphere == -1:
                     for i in range(len(self.spheres)):
                         sphere_pos = self.spheres[i][0]
@@ -84,29 +93,36 @@ class Scara:
         return joint_1_pos, joint_2_pos
 
 
+    def draw_arm(self, screen, angle_1, angle_2, color):
+        middle = (self.x + 153 + 306, self.y + 153)
+        pygame.draw.circle(screen, (0, 0, 0), middle, 5)
+        joint_1_pos, joint_2_pos = self.get_joints_pos(angle_1, angle_2)
+        j1_sc = (joint_1_pos[0] * 38 + middle[0], joint_1_pos[1] * 38 + middle[1])
+        j2_sc = (joint_2_pos[0] * 38 + middle[0], joint_2_pos[1] * 38 + middle[1])
+        pygame.draw.circle(screen, color, j1_sc, 3)
+        pygame.draw.circle(screen, color, j2_sc, 4)
+        pygame.draw.line(screen, color, middle, j1_sc, 2)
+        pygame.draw.line(screen, color, j1_sc, j2_sc, 2)
+
+        end_effector_pos = (angle_1, angle_2)
+        end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
+        end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
+        pygame.draw.circle(screen, color, end_effector_pos, 5)
+
     def draw(self, screen):
         self.screen.draw(screen)
         rect = pygame.Rect(self.x + 306, self.y, 306, 306)
         pygame.draw.rect(screen, (255, 255, 255), rect)
         middle = (self.x + 153 + 306, self.y + 153)
-        pygame.draw.circle(screen, (0, 0, 0), middle, 5)
-        joint_1_pos, joint_2_pos = self.get_joints_pos(self.angle_1, self.angle_2)
-        j1_sc = (joint_1_pos[0] * 38 + middle[0], joint_1_pos[1] * 38 + middle[1])
-        j2_sc = (joint_2_pos[0] * 38 + middle[0], joint_2_pos[1] * 38 + middle[1])
-        pygame.draw.circle(screen, (0, 0, 0), j1_sc, 3)
-        pygame.draw.circle(screen, (0, 0, 0), j2_sc, 4)
-        pygame.draw.line(screen, (0, 0, 0), middle, j1_sc, 2)
-        pygame.draw.line(screen, (0, 0, 0), j1_sc, j2_sc, 2)
-
-        end_effector_pos = (self.angle_1, self.angle_2)
-        end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
-        end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
-        pygame.draw.circle(screen, (0, 0, 0), end_effector_pos, 5)
+        color = (0, 0, 0)
+        desired_color = (255, 0, 0)
+        self.draw_arm(screen, self.angle_1, self.angle_2, color)
+        self.draw_arm(screen, self.desired_angle_1, self.desired_angle_2, desired_color)
 
         for i in range(len(self.spheres)):
             sphere_pos = self.spheres[i][0]
             sphere_radius = self.spheres[i][1]
             sphere_pos = (sphere_pos[0] * 38 + middle[0], sphere_pos[1] * 38 * -1 + middle[1])
             sphere_radius = sphere_radius * 38
-            pygame.draw.circle(screen, (255, 0, 0), sphere_pos, sphere_radius)
+            pygame.draw.circle(screen, (120, 120, 120), sphere_pos, sphere_radius)
 
