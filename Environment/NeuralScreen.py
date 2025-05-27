@@ -16,7 +16,7 @@ class NeuralScreen:
         self.font = pygame.font.Font(None, 36)
         self.font_range = pygame.font.Font(None, 24)
 
-    def update(self, delta_time):
+    def update(self, delta_time, scroll):
         pass
 
     def setSDFMode(self, mode):

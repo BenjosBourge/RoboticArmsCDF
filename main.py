@@ -37,11 +37,14 @@ def main():
     while running:
         screen.fill((0, 0, 0))  # Background color
 
+        scroll = 0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.MOUSEWHEEL:
+                scroll += event.y
 
-        screen_1.update(deltatime)
+        screen_1.update(deltatime, scroll)
         screen_1.draw(screen)
 
         pygame.display.flip()

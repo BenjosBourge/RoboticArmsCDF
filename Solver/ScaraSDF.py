@@ -16,6 +16,10 @@ class ScaraSDF:
         else:
             self.add_sphere(x, y, radius)
 
+    def remove_sphere(self, index):
+        if index < len(self.spheres):
+            self.spheres.pop(index)
+
     def get_joints_pos(self, a1, a2):
         a1 *= -1
         a2 *= -1
@@ -32,7 +36,7 @@ class ScaraSDF:
         return joint_1_pos, joint_2_pos
 
     def get_distance(self, joints):
-        value = float('inf')
+        value = 10.
         for i in range(2):
             x, y = joints[i]
             y *= -1
