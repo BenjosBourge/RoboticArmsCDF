@@ -3,7 +3,7 @@ import pygame
 import numpy as np
 from enum import Enum
 
-from Environment import NeuralScreen
+from Environment import FastNeuralScreen
 
 class SolveMode(Enum):
     DEFAULT = 0
@@ -30,20 +30,29 @@ class Button:
         screen.blit(text_surface, text_rect)
 
 class Scara:
-    def __init__(self, x, y, solver):
-        self.screen = NeuralScreen.NeuralScreen(x, y, solver)
-        self.solver = solver
+    def __init__(self, x, y, CDFsolver, SDFsolver):
+        self.screen = FastNeuralScreen.FastNeuralScreen(x, y, CDFsolver)
+        self.second_screen = FastNeuralScreen.FastNeuralScreen(x - 306, y, SDFsolver)
+        self.solver = CDFsolver
+        self.second_solver = SDFsolver
         self.x = x
         self.y = y
         self.angle_1 = 0
         self.angle_2 = 0
+
         self.screen.range = np.pi
         self.screen.setSDFMode(True)
         self.screen.show_loss = False
         self.screen.show_range = True
+        self.second_screen.range = np.pi
+        self.second_screen.setSDFMode(True)
+        self.second_screen.show_loss = False
+        self.second_screen.show_range = False
+
         self.length_1 = 2
         self.length_2 = 2
         self.screen.step_value = 0.6
+        self.second_screen.step_value = 0.6
         self.spheres = []
         self.selected_sphere = -1
         self.desired_angle_1 = 0
@@ -69,19 +78,27 @@ class Scara:
     def add_sphere(self, x, y, radius):
         self.spheres.append([[x, y], radius])
         self.solver.add_sphere(x, y, radius)
+        self.second_solver.add_sphere(x, y, radius)
+        self.screen.update_grid()
+        self.second_screen.update_grid()
 
     def set_spheres(self, index, x, y, radius):
         if index < len(self.spheres):
             self.spheres[index] = [[x, y], radius]
             self.solver.set_spheres(index, x, y, radius)
+            self.second_solver.set_spheres(index, x, y, radius)
         else:
             self.add_sphere(x, y, radius)
-            self.solver.add_sphere(x, y, radius)
+        self.screen.update_grid()
+        self.second_screen.update_grid()
 
     def remove_sphere(self, index):
         if index < len(self.spheres):
             self.spheres.pop(index)
             self.solver.remove_sphere(index)
+            self.second_solver.remove_sphere(index)
+        self.screen.update_grid()
+        self.second_screen.update_grid()
 
 
     def update(self, delta_time, scroll):
@@ -129,7 +146,6 @@ class Scara:
                         break
 
             if scroll != 0:
-                print("Scroll:", scroll)
                 for i in range(len(self.spheres)):
                     sphere_pos = self.spheres[i][0]
                     sphere_radius = self.spheres[i][1] * 38
@@ -214,6 +230,7 @@ class Scara:
 
     def draw(self, screen):
         self.screen.draw(screen)
+        self.second_screen.draw(screen)
         rect = pygame.Rect(self.x + 306, self.y, 306, 306)
         pygame.draw.rect(screen, (255, 255, 255), rect)
         middle = (self.x + 153 + 306, self.y + 153)
@@ -265,8 +282,9 @@ class Scara:
             gvalue_y = self.solver.solve(self.angle_1, self.angle_2 + 0.01) - value
             vector = np.array([gvalue_x, gvalue_y])
             length = np.linalg.norm(vector)
-            self.angle_1 += gvalue_y / length * 0.5 * delta_time
-            self.angle_2 -= gvalue_x / length * 0.5 * delta_time
+            if gvalue_x != 0 or gvalue_y != 0:
+                self.angle_1 += gvalue_y / length * 0.5 * delta_time
+                self.angle_2 -= gvalue_x / length * 0.5 * delta_time
         else:
             self.angle_1 = nangle_1
             self.angle_2 = nangle_2

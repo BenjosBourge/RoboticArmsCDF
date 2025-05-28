@@ -6,6 +6,7 @@ from Solver.NeuralNetwork import NeuralNetwork
 from Solver.GroundTrueSDF import GroundTrueSDF
 from Solver.ParticleSwarmAlgorithm import PSO
 from Solver.ScaraSDF import ScaraSDF
+from Solver.ScaraCDF import ScaraCDF
 
 from Environment import NeuralScreen
 from Environment import Scara
@@ -27,10 +28,11 @@ def main():
     Y = Y.reshape((Y.shape[0], 1))
 
     # Solvers
+    scaraCDF = ScaraCDF()
     scaraSDF = ScaraSDF()
 
     # Environment
-    screen_1 = Scara.Scara(200, 300, scaraSDF)
+    screen_1 = Scara.Scara(400, 300, scaraCDF, scaraSDF)
 
     running = True
     deltatime = 0.
