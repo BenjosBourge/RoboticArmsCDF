@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 class FastNeuralScreen:
-    def __init__(self, x, y, solver):
+    def __init__(self, x, y, solver, nb_tiles=51):
         self.x = x
         self.y = y
         self.range = 10.
@@ -13,9 +13,10 @@ class FastNeuralScreen:
         self.step_value = 0.2
         self.show_loss = True
         self.show_range = False
+        self.nb_tiles = nb_tiles
         self.font = pygame.font.Font(None, 36)
         self.font_range = pygame.font.Font(None, 24)
-        self.grid = np.zeros((51, 51), dtype=float)
+        self.grid = np.zeros((nb_tiles, nb_tiles), dtype=float)
 
     def update(self, delta_time, scroll):
         pass
@@ -59,9 +60,9 @@ class FastNeuralScreen:
         return color
 
     def update_grid(self):
-        for row in range(51):
-            for col in range(51):
-                value = self.solver.solve((col / 25.0 - 1.) * self.range, (row / 25.0 - 1.) * -1 * self.range)
+        for row in range(self.nb_tiles):
+            for col in range(self.nb_tiles):
+                value = self.solver.solve((col / ((self.nb_tiles - 1)/2) - 1.) * self.range, (row / ((self.nb_tiles - 1)/2) - 1.) * -1 * self.range)
                 if self.sdfMode:
                     if value < 0:
                         value = math.floor(-value / 0.01) * 2. * -1
@@ -71,11 +72,11 @@ class FastNeuralScreen:
                 self.grid[row][col] = value
 
     def draw(self, screen):
-        for row in range(51):
-            for col in range(51):
+        for row in range(self.nb_tiles):
+            for col in range(self.nb_tiles):
                 value = self.grid[row][col]
                 color = self.getColor(value)
-                rect = pygame.Rect(col * 6 + self.x, row * 6 + self.y, 6, 6)
+                rect = pygame.Rect(col * (306 / self.nb_tiles) + self.x, row * (306 / self.nb_tiles) + self.y, 306 / (self.nb_tiles - 1), 306 / (self.nb_tiles - 1))
                 pygame.draw.rect(screen, color, rect)
 
         if self.show_loss:

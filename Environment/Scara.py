@@ -31,7 +31,7 @@ class Button:
 
 class Scara:
     def __init__(self, x, y, CDFsolver, SDFsolver):
-        self.screen = FastNeuralScreen.FastNeuralScreen(x, y, CDFsolver)
+        self.screen = FastNeuralScreen.FastNeuralScreen(x, y, CDFsolver, 26)
         self.second_screen = FastNeuralScreen.FastNeuralScreen(x - 306, y, SDFsolver)
         self.solver = CDFsolver
         self.second_solver = SDFsolver
