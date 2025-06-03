@@ -23,8 +23,8 @@ class CDFSolver:
         return c_dist.squeeze(), grad
 
     def solve(self, q1, q2):
-        x = torch.tensor([[self.x, self.y]], device=self.device)
-        q = torch.tensor([[q1, q2]], device=self.device)
+        x = torch.tensor([[self.x, self.y]], device=self.device, dtype=torch.float32)
+        q = torch.tensor([[q1, q2]], device=self.device, dtype=torch.float32)
         q.requires_grad = True
         c_dist, grad = self.inference(x, q, self.net)
         c_dist = c_dist.item()

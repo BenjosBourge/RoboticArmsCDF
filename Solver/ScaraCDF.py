@@ -37,6 +37,7 @@ class ScaraCDF:
             return 10.
         self.cdf_solver.x = self.spheres[0][0][0]
         self.cdf_solver.y = self.spheres[0][0][1]
+
         return self.cdf_solver.solve(x, y)
 
     def getLoss(self):
