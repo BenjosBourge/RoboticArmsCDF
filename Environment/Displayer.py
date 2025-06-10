@@ -4,6 +4,7 @@ import numpy as np
 from enum import Enum
 
 from Environment import FastNeuralScreen
+from RoboticArms import Scara
 
 class SolveMode(Enum):
     DEFAULT = 0
@@ -29,7 +30,7 @@ class Button:
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
 
-class Scara:
+class Displayer:
     def __init__(self, x, y, CDFsolver, SDFsolver):
         self.screen = FastNeuralScreen.FastNeuralScreen(x, y, CDFsolver, 26)
         self.second_screen = FastNeuralScreen.FastNeuralScreen(x - 306, y, SDFsolver)
@@ -37,8 +38,8 @@ class Scara:
         self.second_solver = SDFsolver
         self.x = x
         self.y = y
-        self.angle_1 = 0
-        self.angle_2 = 0
+        self.robot_arm = Scara.ScaraArm()
+        self.desired_robot_arm = Scara.ScaraArm()
 
         self.screen.range = np.pi
         self.screen.setSDFMode(True)
@@ -49,8 +50,6 @@ class Scara:
         self.second_screen.show_loss = False
         self.second_screen.show_range = False
 
-        self.length_1 = 2
-        self.length_2 = 2
         self.screen.step_value = 0.6
         self.second_screen.step_value = 0.6
         self.spheres = []
@@ -161,8 +160,8 @@ class Scara:
                     y = (pos[1] - (self.y + 153)) / 150
                     x = x * np.pi
                     y = y * np.pi * -1
-                    self.desired_angle_1 = x
-                    self.desired_angle_2 = y
+                    self.desired_robot_arm.set_angle(0, x)
+                    self.desired_robot_arm.set_angle(1, y)
 
             if pygame.mouse.get_pressed()[0]:
                 if self.x < pos[0] < self.x + 306 and self.y < pos[1] < self.y + 306:
@@ -171,11 +170,11 @@ class Scara:
                     x = x * np.pi
                     y = y * np.pi * -1
                     if pygame.key.get_pressed()[pygame.K_LSHIFT] or pygame.key.get_pressed()[pygame.K_RSHIFT]:
-                        self.desired_angle_1 = x
-                        self.desired_angle_2 = y
+                        self.desired_robot_arm.set_angle(0, x)
+                        self.desired_robot_arm.set_angle(1, y)
                     else:
-                        self.angle_1 = x
-                        self.angle_2 = y
+                        self.robot_arm.set_angle(0, x)
+                        self.robot_arm.set_angle(1, y)
                 elif self.x + 306 < pos[0] < self.x + 612 and self.y < pos[1] < self.y + 306:
                     if self.selected_sphere == -1:
                         for i in range(len(self.spheres)):
@@ -195,34 +194,25 @@ class Scara:
             else:
                 self.selected_sphere = -1
 
-
-    def get_joints_pos(self, a1, a2):
-        a1 *= -1
-        a2 *= -1
-        nx = np.cos(a1) * self.length_1
-        ny = np.sin(a1) * self.length_1
-
-        joint_1_pos = (nx, ny)
-        a2 = a1 + a2
-        if a2 > np.pi:
-            a2 = a2 - 2 * np.pi
-        if a2 < -np.pi:
-            a2 = a2 + 2 * np.pi
-        joint_2_pos = (joint_1_pos[0] + np.cos(a2) * self.length_2, joint_1_pos[1] + np.sin(a2) * self.length_2)
-        return joint_1_pos, joint_2_pos
-
-
-    def draw_arm(self, screen, angle_1, angle_2, color):
+    def draw_arm(self, screen, robot_arm, color):
         middle = (self.x + 153 + 306, self.y + 153)
         pygame.draw.circle(screen, (0, 0, 0), middle, 5)
-        joint_1_pos, joint_2_pos = self.get_joints_pos(angle_1, angle_2)
-        j1_sc = (joint_1_pos[0] * 38 + middle[0], joint_1_pos[1] * 38 + middle[1])
-        j2_sc = (joint_2_pos[0] * 38 + middle[0], joint_2_pos[1] * 38 + middle[1])
-        pygame.draw.circle(screen, color, j1_sc, 3)
-        pygame.draw.circle(screen, color, j2_sc, 4)
-        pygame.draw.line(screen, color, middle, j1_sc, 2)
-        pygame.draw.line(screen, color, j1_sc, j2_sc, 2)
+        joint_pos = robot_arm.forward_kinematic()
 
+        old_pos = middle
+        for i in range(robot_arm.nb_angles):
+            angle = robot_arm.get_angle(i)
+            j_pos = joint_pos[i]
+            j_sc = (j_pos[0] * 38 + middle[0], j_pos[1] * 38 + middle[1])
+            radius = 3
+            if i == robot_arm.nb_angles - 1:
+                radius = 4
+            pygame.draw.circle(screen, color, j_sc, radius)
+            pygame.draw.line(screen, color, old_pos, j_sc, 2)
+            old_pos = j_sc
+
+        angle_1 = robot_arm.get_angle(0)
+        angle_2 = robot_arm.get_angle(1)
         end_effector_pos = (angle_1, angle_2)
         end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
         end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
@@ -236,8 +226,8 @@ class Scara:
         middle = (self.x + 153 + 306, self.y + 153)
         color = (0, 0, 0)
         desired_color = (255, 0, 0)
-        self.draw_arm(screen, self.angle_1, self.angle_2, color)
-        self.draw_arm(screen, self.desired_angle_1, self.desired_angle_2, desired_color)
+        self.draw_arm(screen, self.robot_arm, color)
+        self.draw_arm(screen, self.desired_robot_arm, desired_color)
 
         for i in range(len(self.spheres)):
             sphere_pos = self.spheres[i][0]

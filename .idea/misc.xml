@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.12 (BiologicalSDF)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (NeuralEngine)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (RoboticArmsCDF)" project-jdk-type="Python SDK" />
 </project>

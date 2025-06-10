@@ -9,7 +9,7 @@ from Solver.ScaraSDF import ScaraSDF
 from Solver.ScaraCDF import ScaraCDF
 
 from Environment import NeuralScreen
-from Environment import Scara
+from Environment import Displayer
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
     scaraSDF = ScaraSDF()
 
     # Environment
-    screen_1 = Scara.Scara(400, 300, scaraCDF, scaraSDF)
+    screen_1 = Displayer.Displayer(400, 300, scaraCDF, scaraSDF)
 
     running = True
     deltatime = 0.
