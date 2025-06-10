@@ -27,12 +27,8 @@ def main():
     Y = 1 - Y
     Y = Y.reshape((Y.shape[0], 1))
 
-    # Solvers
-    scaraCDF = ScaraCDF()
-    scaraSDF = ScaraSDF()
-
     # Environment
-    screen_1 = Displayer.Displayer(400, 300, scaraCDF, scaraSDF)
+    displayer = Displayer.Displayer(400, 300)
 
     running = True
     deltatime = 0.
@@ -46,8 +42,8 @@ def main():
             if event.type == pygame.MOUSEWHEEL:
                 scroll += event.y
 
-        screen_1.update(deltatime, scroll)
-        screen_1.draw(screen)
+        displayer.update(deltatime, scroll)
+        displayer.draw(screen)
 
         pygame.display.flip()
         deltatime = clock.tick(60) / 1000.0  # Convert milliseconds to seconds
