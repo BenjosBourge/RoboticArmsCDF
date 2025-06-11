@@ -69,20 +69,14 @@ class Displayer:
         self.desired_robot_arm = Scara.ScaraArm()
         self.sdf_solver = SDFSolver(self.robot_arm)
         self.cdf_solver = CDFSolver(self.robot_arm)
-        self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.cdf_solver, 26)
-        self.second_screen = FastNeuralScreen.FastNeuralScreen(x - 306, y, self.sdf_solver)
+        self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.sdf_solver)
 
         self.screen.range = np.pi
         self.screen.setSDFMode(True)
         self.screen.show_loss = False
         self.screen.show_range = True
-        self.second_screen.range = np.pi
-        self.second_screen.setSDFMode(True)
-        self.second_screen.show_loss = False
-        self.second_screen.show_range = False
 
         self.screen.step_value = 0.6
-        self.second_screen.step_value = 0.6
         self.spheres = []
         self.selected_sphere = -1
         self.desired_angle_1 = 0
@@ -94,12 +88,12 @@ class Displayer:
         self.add_sphere(2.5, 2.5, 0, 0.5)  # (x, y, radius)
         self.add_sphere(-2.5, -2.5, 0, 0.2)  # (x, y, radius)
 
-        self.add_button(self.x + 5, self.y + 336, 100, 50, "Stop")
-        self.add_button(self.x + 105, self.y + 336, 100, 50, "Default")
-        self.add_button(self.x + 205, self.y + 336, 100, 50, "Gradient")
-        self.add_button(self.x + 305, self.y + 336, 100, 50, "Geodesic")
-        self.add_button(self.x + 405, self.y + 336, 100, 50, "Solve")
-        self.add_button(self.x + 505, self.y + 336, 150, 50, "Add Sphere")
+        self.add_button(50, self.y + 336, 100, 50, "Stop")
+        self.add_button(160, self.y + 336, 100, 50, "Default")
+        self.add_button(270, self.y + 336, 120, 50, "Gradient")
+        self.add_button(400, self.y + 336, 120, 50, "Geodesic")
+        self.add_button(530, self.y + 336, 100, 50, "Solve")
+        self.add_button(640, self.y + 336, 150, 50, "Add Sphere")
 
     def add_button(self, x, y, width, height, text):
         button = Button(x, y, width, height, text)
@@ -109,7 +103,6 @@ class Displayer:
         self.spheres.append([[x, y, z], radius])
         self.robot_arm.add_sphere(x, y, z, radius)
         self.screen.update_grid()
-        self.second_screen.update_grid()
 
     def set_spheres(self, index, x, y, z, radius):
         if index < len(self.spheres):
@@ -118,14 +111,12 @@ class Displayer:
         else:
             self.add_sphere(x, y, z, radius)
         self.screen.update_grid()
-        self.second_screen.update_grid()
 
     def remove_sphere(self, index):
         if index < len(self.spheres):
             self.spheres.pop(index)
             self.robot_arm.remove_sphere(index)
         self.screen.update_grid()
-        self.second_screen.update_grid()
 
 
     def update(self, delta_time, scroll):
@@ -144,7 +135,7 @@ class Displayer:
             self.solving = True
             self.mode = SolveMode.SOLVE
         if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.add_sphere(0, 0, 0.5)
+            self.add_sphere(0, 0, 0.0, 0.5)
 
 
         if self.solving:
@@ -222,7 +213,9 @@ class Displayer:
             else:
                 self.selected_sphere = -1
 
-    def draw_arm(self, screen, robot_arm, color):
+
+    # draw
+    def draw_arm_2D(self, screen, robot_arm, color):
         middle = (self.x + 153 + 306, self.y + 153)
         pygame.draw.circle(screen, (0, 0, 0), middle, 5)
         if color == (255, 0, 0):
@@ -241,23 +234,20 @@ class Displayer:
             pygame.draw.line(screen, color, old_pos, j_sc, 2)
             old_pos = j_sc
 
-        angle_1 = robot_arm.get_angle(0)
-        angle_2 = robot_arm.get_angle(1)
-        end_effector_pos = (angle_1, angle_2)
-        end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
-        end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
-        pygame.draw.circle(screen, color, end_effector_pos, 5)
-
-    def draw(self, screen):
-        self.screen.draw(screen)
-        self.second_screen.draw(screen)
+    def draw_2D(self, screen):
         rect = pygame.Rect(self.x + 306, self.y, 306, 306)
         pygame.draw.rect(screen, (255, 255, 255), rect)
+
+        for i in range(7):
+            j = i - 3
+            pygame.draw.line(screen, (160, 160, 160), (self.x + 306 + 153 + j * 38, self.y), (self.x + 306 + 153 + j * 38, self.y + 306), 1)
+            pygame.draw.line(screen, (160, 160, 160), (self.x + 306, self.y + 153 + j * 38), (self.x + 612, self.y + 153 + j * 38), 1)
+
         middle = (self.x + 153 + 306, self.y + 153)
         color = (0, 0, 0)
         desired_color = (255, 0, 0)
-        self.draw_arm(screen, self.robot_arm, color)
-        self.draw_arm(screen, self.desired_robot_arm, desired_color)
+        self.draw_arm_2D(screen, self.robot_arm, color)
+        self.draw_arm_2D(screen, self.desired_robot_arm, desired_color)
 
         for i in range(len(self.spheres)):
             sphere_pos = self.spheres[i][0]
@@ -265,6 +255,93 @@ class Displayer:
             sphere_pos = (sphere_pos[0] * 38 + middle[0], sphere_pos[1] * 38 * -1 + middle[1])
             sphere_radius = sphere_radius * 38
             pygame.draw.circle(screen, (120, 120, 120), sphere_pos, sphere_radius)
+
+    def draw_arm_3D(self, screen, robot_arm, color):
+        middle = (self.x + 153 + 612, self.y + 153)
+        pygame.draw.circle(screen, (0, 0, 0), middle, 5)
+        if color == (255, 0, 0):
+            joint_pos = robot_arm.forward_kinematic()
+        else:
+            joint_pos = robot_arm.forward_kinematic()
+
+        old_pos = middle
+        for i in range(robot_arm.nb_angles):
+            j_pos = joint_pos[i]
+            j_offset_z = j_pos[2] * 38 * 0.5
+            j_pos_x = j_pos[0] * 38 * 0.5 - j_pos[1] * 38 * 0.5
+            j_pos_y = j_pos[0] * 38 * 0.5 + j_pos[1] * 38 * 0.5
+            j_sc = (j_pos_x + middle[0], j_pos_y + middle[1] - j_offset_z)
+            radius = 3
+            if i == robot_arm.nb_angles - 1:
+                radius = 4
+            pygame.draw.circle(screen, color, j_sc, radius)
+            pygame.draw.line(screen, color, old_pos, j_sc, 2)
+            old_pos = j_sc
+
+    def draw_3D(self, screen):
+        rect = pygame.Rect(self.x + 612, self.y, 306, 306)
+        pygame.draw.rect(screen, (255, 255, 255), rect)
+        middle = (self.x + 153 + 612, self.y + 153)
+        color = (0, 0, 0)
+        desired_color = (255, 0, 0)
+
+        for i in range(15):
+            j = i - 7
+            nstartx = self.x + 612 + 153 + 153 + j * 38
+            if nstartx > self.x + 612 + 306:
+                nstartx = self.x + 612 + 306
+                nstarty = self.y + j * 38
+            else:
+                nstarty = self.y
+            nendx = self.x + 612 + 153 - 153 + j * 38
+            if nendx < self.x + 612:
+                nendx = self.x + 612
+                nendy = self.y + j * 38 + 306
+            else:
+                nendy = self.y + 306
+            pygame.draw.line(screen, (160, 160, 160), (nstartx, nstarty), (nendx, nendy), 1)
+            nstartx = self.x + 612 + 153 - 153 - j * 38
+            if nstartx < self.x + 612:
+                nstartx = self.x + 612
+                nstarty = self.y + j * 38
+            else:
+                nstarty = self.y
+            nendx = self.x + 612 + 153 + 153 - j * 38
+            if nendx > self.x + 612 + 306:
+                nendx = self.x + 612 + 306
+                nendy = self.y + j * 38 + 306
+            else:
+                nendy = self.y + 306
+            pygame.draw.line(screen, (160, 160, 160), (nstartx, nstarty), (nendx, nendy), 1)
+        self.draw_arm_3D(screen, self.robot_arm, color)
+        self.draw_arm_3D(screen, self.desired_robot_arm, desired_color)
+
+        for i in range(len(self.spheres)):
+            sphere_pos = self.spheres[i][0]
+            sphere_radius = self.spheres[i][1]
+            s_offset_z = sphere_pos[2] * 38 * 0.5
+            s_pos_x = sphere_pos[0] * 38 * 0.5 + sphere_pos[1] * 38 * 0.5
+            s_pos_y = sphere_pos[0] * 38 * 0.5 - sphere_pos[1] * 38 * 0.5
+            sphere_pos = (s_pos_x + middle[0], s_pos_y + middle[1] - s_offset_z)
+            sphere_radius = sphere_radius * 38 / 1.4
+            pygame.draw.circle(screen, (120, 120, 120), sphere_pos, sphere_radius)
+
+    def draw(self, screen):
+        self.screen.draw(screen)
+        middle = (self.x + 153 + 306, self.y + 153)
+        arms = [self.robot_arm, self.desired_robot_arm]
+        colors = [(0, 0, 0), (255, 0, 0)]
+        i = 0
+        for arm in arms:
+            angle_1 = arm.get_angle(0)
+            angle_2 = arm.get_angle(1)
+            end_effector_pos = (angle_1, angle_2)
+            end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
+            end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
+            pygame.draw.circle(screen, colors[i], end_effector_pos, 5)
+            i += 1
+        self.draw_2D(screen)
+        self.draw_3D(screen)
 
         for button in self.buttons:
             button.draw(screen)

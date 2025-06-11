@@ -28,7 +28,7 @@ def main():
     Y = Y.reshape((Y.shape[0], 1))
 
     # Environment
-    displayer = Displayer.Displayer(400, 300)
+    displayer = Displayer.Displayer(150, 250)
 
     running = True
     deltatime = 0.
