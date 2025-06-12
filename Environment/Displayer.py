@@ -268,8 +268,8 @@ class Displayer:
         for i in range(robot_arm.nb_angles):
             j_pos = joint_pos[i]
             j_offset_z = j_pos[2] * 38 * 0.5
-            j_pos_x = j_pos[0] * 38 * 0.5 - j_pos[1] * 38 * 0.5
-            j_pos_y = j_pos[0] * 38 * 0.5 + j_pos[1] * 38 * 0.5
+            j_pos_x = j_pos[0] * 50 * 0.5 - j_pos[1] * 50 * 0.5
+            j_pos_y = j_pos[0] * 50 * 0.25 + j_pos[1] * 50 * 0.25
             j_sc = (j_pos_x + middle[0], j_pos_y + middle[1] - j_offset_z)
             radius = 3
             if i == robot_arm.nb_angles - 1:
@@ -285,33 +285,27 @@ class Displayer:
         color = (0, 0, 0)
         desired_color = (255, 0, 0)
 
-        for i in range(15):
-            j = i - 7
-            nstartx = self.x + 612 + 153 + 153 + j * 38
-            if nstartx > self.x + 612 + 306:
-                nstartx = self.x + 612 + 306
-                nstarty = self.y + j * 38
-            else:
-                nstarty = self.y
-            nendx = self.x + 612 + 153 - 153 + j * 38
-            if nendx < self.x + 612:
-                nendx = self.x + 612
-                nendy = self.y + j * 38 + 306
-            else:
-                nendy = self.y + 306
+        for i in range(19):
+            j = i - 9
+            left = self.x + 612
+            right = left + 306
+            bottom = self.y - 153
+            top = bottom + 612
+            nstartx = right + j * 50 + 153
+            nendx = left + j * 50 - 153
+            nstarty = bottom
+            nendy = top
+            if nstartx > right:
+                nstartx = right
+                nstarty = bottom + j * 50 + 153
+            if nendx < left:
+                nendx = left
+                nendy = top + j * 50 - 153
+            nendy = (nendy - self.y) / 2 + self.y + 76
+            nstarty = (nstarty - self.y) / 2 + self.y + 76
             pygame.draw.line(screen, (160, 160, 160), (nstartx, nstarty), (nendx, nendy), 1)
-            nstartx = self.x + 612 + 153 - 153 - j * 38
-            if nstartx < self.x + 612:
-                nstartx = self.x + 612
-                nstarty = self.y + j * 38
-            else:
-                nstarty = self.y
-            nendx = self.x + 612 + 153 + 153 - j * 38
-            if nendx > self.x + 612 + 306:
-                nendx = self.x + 612 + 306
-                nendy = self.y + j * 38 + 306
-            else:
-                nendy = self.y + 306
+            nstartx = (nstartx - self.x - 612) * -1 + self.x + 612 + 306
+            nendx = (nendx - self.x - 612) * -1 + self.x + 612 + 306
             pygame.draw.line(screen, (160, 160, 160), (nstartx, nstarty), (nendx, nendy), 1)
         self.draw_arm_3D(screen, self.robot_arm, color)
         self.draw_arm_3D(screen, self.desired_robot_arm, desired_color)
@@ -319,9 +313,9 @@ class Displayer:
         for i in range(len(self.spheres)):
             sphere_pos = self.spheres[i][0]
             sphere_radius = self.spheres[i][1]
-            s_offset_z = sphere_pos[2] * 38 * 0.5
-            s_pos_x = sphere_pos[0] * 38 * 0.5 + sphere_pos[1] * 38 * 0.5
-            s_pos_y = sphere_pos[0] * 38 * 0.5 - sphere_pos[1] * 38 * 0.5
+            s_offset_z = sphere_pos[2] * 50 * 0.5
+            s_pos_x = sphere_pos[0] * 50 * 0.5 + sphere_pos[1] * 50 * 0.5
+            s_pos_y = sphere_pos[0] * 50 * 0.25 - sphere_pos[1] * 50 * 0.25
             sphere_pos = (s_pos_x + middle[0], s_pos_y + middle[1] - s_offset_z)
             sphere_radius = sphere_radius * 38 / 1.4
             pygame.draw.circle(screen, (120, 120, 120), sphere_pos, sphere_radius)
