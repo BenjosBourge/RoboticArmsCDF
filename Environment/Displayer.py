@@ -5,6 +5,7 @@ from enum import Enum
 
 from Environment import FastNeuralScreen
 from RoboticArms import Scara
+from RoboticArms import Scara3
 
 class SolveMode(Enum):
     DEFAULT = 0
@@ -27,26 +28,32 @@ class Slider:
             pos_in_bar = (mouse_pos[0] - self.x) / 300
             self.value = pos_in_bar * np.pi * 2 - np.pi
             self.robot_arm.set_angle(self.index, self.value)
+            return True
+        return False
 
     def draw(self):
         pygame.draw.rect(pygame.display.get_surface(), (200, 200, 200), (self.x, self.y, 300, 10))
-        pygame.draw.rect(pygame.display.get_surface(), (100, 100, 100), (self.x + self.value * 300 / (np.pi * 2) + 150, self.y - 2, 15, 15))
+        pygame.draw.rect(pygame.display.get_surface(), (100, 100, 100), (self.x + self.value * 300 / (np.pi * 2) + 150 - 7, self.y - 2, 15, 15))
 
 
 class Button:
-    def __init__(self, x, y, width, height, text):
+    def __init__(self, x, y, width, height, text, index):
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.font = pygame.font.Font(None, 36)
         self.color = (200, 200, 200)
         self.hover_color = (150, 150, 150)
+        self.index = index
 
     def is_hovered(self):
         pos = pygame.mouse.get_pos()
         return self.rect.collidepoint(pos)
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, self.color if not self.is_hovered() else self.hover_color, self.rect)
+    def draw(self, screen, a1, a2):
+        color = self.color if not self.is_hovered() else self.hover_color
+        if self.index == a1 or self.index == a2:
+            color = (255, 255, 255)
+        pygame.draw.rect(screen, color, self.rect)
         text_surface = self.font.render(self.text, True, (0, 0, 0))
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
@@ -56,30 +63,42 @@ class Button:
 class SDFSolver:
     def __init__(self, robotic_arm):
         self.robotic_arm = robotic_arm
+        self.a1 = 0
+        self.a2 = 1
+
+    def set_angles(self, a1, a2):
+        self.a1 = a1
+        self.a2 = a2
 
     def solve(self, x, y):
-        old_a1 = self.robotic_arm.get_angle(0)
-        old_a2 = self.robotic_arm.get_angle(1)
-        self.robotic_arm.set_angle(0, x)
-        self.robotic_arm.set_angle(1, y)
+        old_a1 = self.robotic_arm.get_angle(self.a1)
+        old_a2 = self.robotic_arm.get_angle(self.a2)
+        self.robotic_arm.set_angle(self.a1, x)
+        self.robotic_arm.set_angle(self.a2, y)
         value = self.robotic_arm.get_sdf_distance()
-        self.robotic_arm.set_angle(0, old_a1)
-        self.robotic_arm.set_angle(1, old_a2)
+        self.robotic_arm.set_angle(self.a1, old_a1)
+        self.robotic_arm.set_angle(self.a2, old_a2)
         return value
 
 
 class CDFSolver:
     def __init__(self, robotic_arm):
         self.robotic_arm = robotic_arm
+        self.a1 = 0
+        self.a2 = 1
+
+    def set_angles(self, a1, a2):
+        self.a1 = a1
+        self.a2 = a2
 
     def solve(self, x, y):
-        old_a1 = self.robotic_arm.get_angle(0)
-        old_a2 = self.robotic_arm.get_angle(1)
-        self.robotic_arm.set_angle(0, x)
-        self.robotic_arm.set_angle(1, y)
+        old_a1 = self.robotic_arm.get_angle(self.a1)
+        old_a2 = self.robotic_arm.get_angle(self.a2)
+        self.robotic_arm.set_angle(self.a1, x)
+        self.robotic_arm.set_angle(self.a2, y)
         value = self.robotic_arm.get_sdf_distance()
-        self.robotic_arm.set_angle(0, old_a1)
-        self.robotic_arm.set_angle(1, old_a2)
+        self.robotic_arm.set_angle(self.a1, old_a1)
+        self.robotic_arm.set_angle(self.a2, old_a2)
         return value
 
 
@@ -87,8 +106,8 @@ class Displayer:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.robot_arm = Scara.ScaraArm()
-        self.desired_robot_arm = Scara.ScaraArm()
+        self.robot_arm = Scara3.Scara3Arm()
+        self.desired_robot_arm = Scara3.Scara3Arm()
         self.sdf_solver = SDFSolver(self.robot_arm)
         self.cdf_solver = CDFSolver(self.robot_arm)
         self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.sdf_solver)
@@ -97,6 +116,10 @@ class Displayer:
         self.screen.setSDFMode(True)
         self.screen.show_loss = False
         self.screen.show_range = True
+
+        self.display_angle_1 = 0
+        self.display_angle_2 = 1
+        self.change_first_display_angle = True
 
         self.screen.step_value = 0.6
         self.spheres = []
@@ -111,24 +134,25 @@ class Displayer:
         self.add_sphere(2.5, 2.5, 0, 0.5)  # (x, y, radius)
         self.add_sphere(-2.5, -2.5, 0, 0.2)  # (x, y, radius)
 
-        self.add_button(50, self.y + 336, 100, 50, "Stop")
-        self.add_button(160, self.y + 336, 100, 50, "Default")
-        self.add_button(270, self.y + 336, 120, 50, "Gradient")
-        self.add_button(400, self.y + 336, 120, 50, "Geodesic")
-        self.add_button(530, self.y + 336, 100, 50, "Solve")
-        self.add_button(640, self.y + 336, 150, 50, "Add Sphere")
+        self.add_button(50, self.y + 336, 100, 50, "Stop", -1)
+        self.add_button(160, self.y + 336, 100, 50, "Default", -1)
+        self.add_button(270, self.y + 336, 120, 50, "Gradient", -1)
+        self.add_button(400, self.y + 336, 120, 50, "Geodesic", -1)
+        self.add_button(530, self.y + 336, 100, 50, "Solve", -1)
+        self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
 
         for i in range(self.robot_arm.nb_angles):
             slider_x = self.x
             slider_y = self.y - 30 - i * 20
             self.add_slider(slider_x, slider_y, i)
+            self.add_button(self.x - 25, self.y + i * 25 + 10, 20, 20, f"{i}", i)
 
     def add_slider(self, x, y, index):
         slider = Slider(x, y, index, self.robot_arm)
         self.sliders.append(slider)
 
-    def add_button(self, x, y, width, height, text):
-        button = Button(x, y, width, height, text)
+    def add_button(self, x, y, width, height, text, index):
+        button = Button(x, y, width, height, text, index)
         self.buttons.append(button)
 
     def add_sphere(self, x, y, z, radius):
@@ -140,20 +164,21 @@ class Displayer:
         if index < len(self.spheres):
             self.spheres[index] = [[x, y, z], radius]
             self.robot_arm.set_spheres(index, x, y, z, radius)
+            self.screen.update_grid()
         else:
             self.add_sphere(x, y, z, radius)
-        self.screen.update_grid()
 
     def remove_sphere(self, index):
         if index < len(self.spheres):
             self.spheres.pop(index)
             self.robot_arm.remove_sphere(index)
-        self.screen.update_grid()
+            self.screen.update_grid()
 
 
     def update(self, delta_time, scroll):
         for slider in self.sliders:
-            slider.update()
+            if slider.update() and slider.index != self.display_angle_1 and slider.index != self.display_angle_2:
+                self.screen.update_grid()
         if self.buttons[0].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = False
         if self.buttons[1].is_hovered() and pygame.mouse.get_pressed()[0]:
@@ -171,6 +196,19 @@ class Displayer:
         if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.add_sphere(0, 0, 0.0, 0.5)
 
+        for button in self.buttons:
+            if button.is_hovered() and pygame.mouse.get_pressed()[0]:
+                if button.index >= 0:
+                    if button.index != self.display_angle_1 and button.index != self.display_angle_2:
+                        if self.change_first_display_angle:
+                            self.display_angle_1 = button.index
+                            self.change_first_display_angle = False
+                        else:
+                            self.display_angle_2 = button.index
+                            self.change_first_display_angle = True
+                        self.sdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
+                        self.cdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
+                        self.screen.update_grid()
 
         if self.solving:
             if self.mode == SolveMode.DEFAULT:
@@ -184,68 +222,76 @@ class Displayer:
                 self.geodesic(delta_time)
             elif self.mode == SolveMode.SOLVE:
                 self.solve(delta_time)
-        else:
-            pos = pygame.mouse.get_pos()
+            return
 
-            if pygame.mouse.get_pressed()[2]:  # Right click to remove sphere
-                for i in range(len(self.spheres)):
-                    sphere_pos = self.spheres[i][0]
-                    sphere_radius = self.spheres[i][1] * 38
-                    distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
-                    distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
-                    if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
-                        self.remove_sphere(i)
-                        break
 
-            if scroll != 0:
-                for i in range(len(self.spheres)):
-                    sphere_pos = self.spheres[i][0]
-                    sphere_radius = self.spheres[i][1] * 38
-                    distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
-                    distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
-                    if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
-                        self.set_spheres(i, self.spheres[i][0][0], self.spheres[i][0][1], self.spheres[i][1] + scroll * 0.6 * delta_time)
-                        break
+        pos = pygame.mouse.get_pos()
 
-            if pygame.mouse.get_pressed()[2]:
-                if self.x < pos[0] < self.x + 306 and self.y < pos[1] < self.y + 306:
-                    x = (pos[0] - (self.x + 153)) / 150
-                    y = (pos[1] - (self.y + 153)) / 150
-                    x = x * np.pi
-                    y = y * np.pi * -1
-                    self.desired_robot_arm.set_angle(0, x)
-                    self.desired_robot_arm.set_angle(1, y)
+        if pygame.mouse.get_pressed()[2]:  # Right click
+            # Remove Spheres
+            for i in range(len(self.spheres)):
+                sphere_pos = self.spheres[i][0]
+                sphere_radius = self.spheres[i][1] * 38
+                distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
+                distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
+                if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
+                    self.remove_sphere(i)
+                    break
 
-            if pygame.mouse.get_pressed()[0]:
-                if self.x < pos[0] < self.x + 306 and self.y < pos[1] < self.y + 306:
-                    x = (pos[0] - (self.x + 153)) / 150
-                    y = (pos[1] - (self.y + 153)) / 150
-                    x = x * np.pi
-                    y = y * np.pi * -1
-                    if pygame.key.get_pressed()[pygame.K_LSHIFT] or pygame.key.get_pressed()[pygame.K_RSHIFT]:
-                        self.desired_robot_arm.set_angle(0, x)
-                        self.desired_robot_arm.set_angle(1, y)
-                    else:
-                        self.robot_arm.set_angle(0, x)
-                        self.robot_arm.set_angle(1, y)
-                elif self.x + 306 < pos[0] < self.x + 612 and self.y < pos[1] < self.y + 306:
-                    if self.selected_sphere == -1:
-                        for i in range(len(self.spheres)):
-                            sphere_pos = self.spheres[i][0]
-                            sphere_radius = self.spheres[i][1] * 38
-                            distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
-                            distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
-                            if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
-                                self.selected_sphere = i
-                                break
-                    else:
-                        sphere_pos = self.spheres[self.selected_sphere][0]
-                        sphere_radius = self.spheres[self.selected_sphere][1]
-                        sphere_pos[0] = (pos[0] - (self.x + 153 + 306)) / 38
-                        sphere_pos[1] = (pos[1] - (self.y + 153)) / -38
-                        self.set_spheres(self.selected_sphere, sphere_pos[0], sphere_pos[1], sphere_pos[2], sphere_radius)
-            else:
+            # Set angles of desired arm with right click
+            if self.x < pos[0] < self.x + 306 and self.y < pos[1] < self.y + 306:
+                x = (pos[0] - (self.x + 153)) / 150
+                y = (pos[1] - (self.y + 153)) / 150
+                x = x * np.pi
+                y = y * np.pi * -1
+                self.desired_robot_arm.set_angle(self.display_angle_1, x)
+                self.desired_robot_arm.set_angle(self.display_angle_2, y)
+
+        if scroll != 0:
+            for i in range(len(self.spheres)):
+                sphere_pos = self.spheres[i][0]
+                sphere_radius = self.spheres[i][1] * 38
+                distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
+                distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
+                if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
+                    self.set_spheres(i, self.spheres[i][0][0], self.spheres[i][0][1], self.spheres[i][1] + scroll * 0.6 * delta_time)
+                    break
+
+        if pygame.mouse.get_pressed()[0]:
+            if not (self.y < pos[1] < self.y + 306):
                 self.selected_sphere = -1
+                return
+
+            # First screen
+            if self.x < pos[0] < self.x + 306:
+                x = (pos[0] - (self.x + 153)) / 150
+                y = (pos[1] - (self.y + 153)) / 150
+                x = x * np.pi
+                y = y * np.pi * -1
+                self.robot_arm.set_angle(self.display_angle_1, x)
+                self.robot_arm.set_angle(self.display_angle_2, y)
+                self.sliders[self.display_angle_1].value = x
+                self.sliders[self.display_angle_2].value = y
+
+            # Second screen
+            if self.x + 306 < pos[0] < self.x + 612:
+                if self.selected_sphere == -1:
+                    for i in range(len(self.spheres)):
+                        sphere_pos = self.spheres[i][0]
+                        sphere_radius = self.spheres[i][1] * 38
+                        distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
+                        distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
+                        if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
+                            self.selected_sphere = i
+                            break
+                else:
+                    sphere_pos = self.spheres[self.selected_sphere][0]
+                    sphere_radius = self.spheres[self.selected_sphere][1]
+                    sphere_pos[0] = (pos[0] - (self.x + 153 + 306)) / 38
+                    sphere_pos[1] = (pos[1] - (self.y + 153)) / -38
+                    self.set_spheres(self.selected_sphere, sphere_pos[0], sphere_pos[1], sphere_pos[2], sphere_radius)
+        else:
+            self.selected_sphere = -1
 
 
     # draw
@@ -361,8 +407,8 @@ class Displayer:
         colors = [(0, 0, 0), (255, 0, 0)]
         i = 0
         for arm in arms:
-            angle_1 = arm.get_angle(0)
-            angle_2 = arm.get_angle(1)
+            angle_1 = arm.get_angle(self.display_angle_1)
+            angle_2 = arm.get_angle(self.display_angle_2)
             end_effector_pos = (angle_1, angle_2)
             end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
             end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
@@ -372,7 +418,7 @@ class Displayer:
         self.draw_3D(screen)
 
         for button in self.buttons:
-            button.draw(screen)
+            button.draw(screen, self.display_angle_1, self.display_angle_2)
         for slider in self.sliders:
             slider.draw()
 

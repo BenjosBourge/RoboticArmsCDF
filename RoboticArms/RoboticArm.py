@@ -1,13 +1,26 @@
 import numpy as np
+from enum import Enum
+
+class RotationMode(Enum):
+    X = 0
+    Y = 1
+    Z = 2
 
 class RoboticArm:
     def __init__(self):
-        self.l = [2, 2]
-        self.nb_angles = 2
-        self.a = [0, 0]  # angles
+        self.l = []
+        self.nb_angles = 0
+        self.a = []  # angles
+        self.m = [] #modes
 
         self.spheres = []
 
+    def set_arm(self, params):
+        for p in params:
+            self.nb_angles += 1
+            self.l.append(p[0])
+            self.a.append(p[1])
+            self.m.append(p[2])
 
     # spheres management
     def add_sphere(self, x, y, z, radius):
@@ -81,7 +94,13 @@ class RoboticArm:
 
         for i in range(self.nb_angles):
             a_i = self.a[i] * -1
-            mat = self.rot_z(a_i)
+            mat = np.eye(4)
+            if self.m[i] == RotationMode.X:
+                mat = self.rot_x(a_i)
+            elif self.m[i] == RotationMode.Y:
+                mat = self.rot_y(a_i)
+            elif self.m[i] == RotationMode.Z:
+                mat = self.rot_z(a_i)
             pos_mat = pos_mat.dot(mat)
             mat = self.m_x(self.l[i])
             pos_mat = pos_mat.dot(mat)
