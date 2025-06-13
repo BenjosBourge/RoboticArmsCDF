@@ -12,6 +12,27 @@ class SolveMode(Enum):
     GEODESIC = 2
     SOLVE = 3
 
+
+class Slider:
+    def __init__(self, x, y, index, robot_arm):
+        self.x = x
+        self.y = y
+        self.index = index
+        self.robot_arm = robot_arm
+        self.value = 0
+
+    def update(self):
+        mouse_pos = pygame.mouse.get_pos()
+        if pygame.mouse.get_pressed()[0] and self.x < mouse_pos[0] < self.x + 300 and self.y < mouse_pos[1] < self.y + 20:
+            pos_in_bar = (mouse_pos[0] - self.x) / 300
+            self.value = pos_in_bar * np.pi * 2 - np.pi
+            self.robot_arm.set_angle(self.index, self.value)
+
+    def draw(self):
+        pygame.draw.rect(pygame.display.get_surface(), (200, 200, 200), (self.x, self.y, 300, 10))
+        pygame.draw.rect(pygame.display.get_surface(), (100, 100, 100), (self.x + self.value * 300 / (np.pi * 2) + 150, self.y - 2, 15, 15))
+
+
 class Button:
     def __init__(self, x, y, width, height, text):
         self.rect = pygame.Rect(x, y, width, height)
@@ -31,6 +52,7 @@ class Button:
         screen.blit(text_surface, text_rect)
 
 
+
 class SDFSolver:
     def __init__(self, robotic_arm):
         self.robotic_arm = robotic_arm
@@ -46,7 +68,6 @@ class SDFSolver:
         return value
 
 
-
 class CDFSolver:
     def __init__(self, robotic_arm):
         self.robotic_arm = robotic_arm
@@ -60,6 +81,7 @@ class CDFSolver:
         self.robotic_arm.set_angle(0, old_a1)
         self.robotic_arm.set_angle(1, old_a2)
         return value
+
 
 class Displayer:
     def __init__(self, x, y):
@@ -84,6 +106,7 @@ class Displayer:
         self.solving = False
         self.mode = SolveMode.DEFAULT
         self.buttons = []
+        self.sliders = []
 
         self.add_sphere(2.5, 2.5, 0, 0.5)  # (x, y, radius)
         self.add_sphere(-2.5, -2.5, 0, 0.2)  # (x, y, radius)
@@ -94,6 +117,15 @@ class Displayer:
         self.add_button(400, self.y + 336, 120, 50, "Geodesic")
         self.add_button(530, self.y + 336, 100, 50, "Solve")
         self.add_button(640, self.y + 336, 150, 50, "Add Sphere")
+
+        for i in range(self.robot_arm.nb_angles):
+            slider_x = self.x
+            slider_y = self.y - 30 - i * 20
+            self.add_slider(slider_x, slider_y, i)
+
+    def add_slider(self, x, y, index):
+        slider = Slider(x, y, index, self.robot_arm)
+        self.sliders.append(slider)
 
     def add_button(self, x, y, width, height, text):
         button = Button(x, y, width, height, text)
@@ -120,6 +152,8 @@ class Displayer:
 
 
     def update(self, delta_time, scroll):
+        for slider in self.sliders:
+            slider.update()
         if self.buttons[0].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = False
         if self.buttons[1].is_hovered() and pygame.mouse.get_pressed()[0]:
@@ -339,6 +373,8 @@ class Displayer:
 
         for button in self.buttons:
             button.draw(screen)
+        for slider in self.sliders:
+            slider.draw()
 
 
     # Solving problems
