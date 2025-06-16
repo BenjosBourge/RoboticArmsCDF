@@ -6,6 +6,7 @@ from enum import Enum
 from Environment import FastNeuralScreen
 from RoboticArms import Scara
 from RoboticArms import Scara3
+from RoboticArms import Spherical
 
 class SolveMode(Enum):
     DEFAULT = 0
@@ -106,8 +107,8 @@ class Displayer:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.robot_arm = Scara3.Scara3Arm()
-        self.desired_robot_arm = Scara3.Scara3Arm()
+        self.robot_arm = Scara.ScaraArm()
+        self.desired_robot_arm = Scara.ScaraArm()
         self.sdf_solver = SDFSolver(self.robot_arm)
         self.cdf_solver = CDFSolver(self.robot_arm)
         self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.sdf_solver)
@@ -140,6 +141,10 @@ class Displayer:
         self.add_button(400, self.y + 336, 120, 50, "Geodesic", -1)
         self.add_button(530, self.y + 336, 100, 50, "Solve", -1)
         self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
+
+        self.add_button(50, self.y + 400, 130, 50, "Scara", -1)
+        self.add_button(200, self.y + 400, 130, 50, "Scara3D", -1)
+        self.add_button(350, self.y + 400, 130, 50, "Spherical", -1)
 
         for i in range(self.robot_arm.nb_angles):
             slider_x = self.x
@@ -175,6 +180,39 @@ class Displayer:
             self.screen.update_grid()
 
 
+    def change_arm(self, arm_type):
+        if arm_type == "Scara":
+            self.robot_arm = Scara.ScaraArm()
+            self.desired_robot_arm = Scara.ScaraArm()
+        elif arm_type == "Scara3D":
+            self.robot_arm = Scara3.Scara3Arm()
+            self.desired_robot_arm = Scara3.Scara3Arm()
+        elif arm_type == "Spherical":
+            self.robot_arm = Spherical.Spherical()
+            self.desired_robot_arm = Spherical.Spherical()
+        else:
+            raise ValueError("Unknown arm type")
+
+        for sphere in self.spheres:
+            self.robot_arm.add_sphere(sphere[0][0], sphere[0][1], sphere[0][2], sphere[1])
+        self.sdf_solver.robotic_arm = self.robot_arm
+        self.cdf_solver.robotic_arm = self.robot_arm
+        self.display_angle_1 = 0
+        self.display_angle_2 = 1
+        self.screen.update_grid()
+        self.sliders.clear()
+        new_buttons = []
+        for i in range(len(self.buttons)):
+            if self.buttons[i].index < 0:
+                new_buttons.append(self.buttons[i])
+        self.buttons = new_buttons
+        for i in range(self.robot_arm.nb_angles):
+            slider_x = self.x
+            slider_y = self.y - 30 - i * 20
+            self.add_slider(slider_x, slider_y, i)
+            self.add_button(self.x - 25, self.y + i * 25 + 10, 20, 20, f"{i}", i)
+
+
     def update(self, delta_time, scroll):
         for slider in self.sliders:
             if slider.update() and slider.index != self.display_angle_1 and slider.index != self.display_angle_2:
@@ -195,6 +233,13 @@ class Displayer:
             self.mode = SolveMode.SOLVE
         if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.add_sphere(0, 0, 0.0, 0.5)
+
+        if self.buttons[6].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Scara")
+        if self.buttons[7].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Scara3D")
+        if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Spherical")
 
         for button in self.buttons:
             if button.is_hovered() and pygame.mouse.get_pressed()[0]:
@@ -339,11 +384,24 @@ class Displayer:
     def draw_arm_3D(self, screen, robot_arm, color):
         middle = (self.x + 153 + 612, self.y + 153)
         pygame.draw.circle(screen, (0, 0, 0), middle, 5)
-        if color == (255, 0, 0):
-            joint_pos = robot_arm.forward_kinematic()
-        else:
-            joint_pos = robot_arm.forward_kinematic()
+        joint_pos = robot_arm.forward_kinematic()
 
+        #shadow
+        old_pos = middle
+        for i in range(robot_arm.nb_angles):
+            j_pos = joint_pos[i]
+            j_offset_z = 0
+            j_pos_x = j_pos[0] * 50 * 0.5 - j_pos[1] * 50 * 0.5
+            j_pos_y = j_pos[0] * 50 * 0.25 + j_pos[1] * 50 * 0.25
+            j_sc = (j_pos_x + middle[0], j_pos_y + middle[1] - j_offset_z)
+            radius = 3
+            if i == robot_arm.nb_angles - 1:
+                radius = 4
+            pygame.draw.circle(screen, (190, 190, 190), j_sc, radius)
+            pygame.draw.line(screen, (190, 190, 190), old_pos, j_sc, 2)
+            old_pos = j_sc
+
+        # arm
         old_pos = middle
         for i in range(robot_arm.nb_angles):
             j_pos = joint_pos[i]

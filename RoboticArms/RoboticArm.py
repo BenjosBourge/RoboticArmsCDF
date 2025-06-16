@@ -61,7 +61,7 @@ class RoboticArm:
     def rot_y(self, angle):
         return np.array([[np.cos(angle), 0, np.sin(angle), 0],
                          [0, 1, 0, 0],
-                         [0, -np.sin(angle), np.cos(angle), 0],
+                         [-np.sin(angle), 0, np.cos(angle), 0],
                             [0, 0, 0, 1]])
 
     def rot_z(self, angle):
