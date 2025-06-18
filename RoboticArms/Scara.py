@@ -6,3 +6,4 @@ class ScaraArm(RoboticArm.RoboticArm):
     def __init__(self):
         super().__init__()
         self.set_arm([(2, 0, RoboticArm.RotationMode.Z), (2, 0, RoboticArm.RotationMode.Z)])
+        self.name = "Scara"

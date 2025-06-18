@@ -8,6 +8,7 @@ class RotationMode(Enum):
 
 class RoboticArm:
     def __init__(self):
+        self.name = "RoboticArm"
         self.l = []
         self.nb_angles = 0
         self.a = []  # angles

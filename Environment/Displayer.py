@@ -101,6 +101,8 @@ class Displayer:
         self.add_button(400, self.y + 336, 120, 50, "Geodesic", -1)
         self.add_button(530, self.y + 336, 100, 50, "Solve", -1)
         self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
+        self.add_button(800, self.y + 336, 100, 50, "SDF", -1)
+        self.add_button(910, self.y + 336, 100, 50, "CDF", -1)
 
         self.add_button(50, self.y + 400, 130, 50, "Scara", -1)
         self.add_button(200, self.y + 400, 130, 50, "Scara3D", -1)
@@ -123,13 +125,11 @@ class Displayer:
     def add_sphere(self, x, y, z, radius):
         self.spheres.append([[x, y, z], radius])
         self.robot_arm.add_sphere(x, y, z, radius)
-        self.screen.update_grid()
 
     def set_spheres(self, index, x, y, z, radius):
         if index < len(self.spheres):
             self.spheres[index] = [[x, y, z], radius]
             self.robot_arm.set_spheres(index, x, y, z, radius)
-            self.screen.update_grid()
         else:
             self.add_sphere(x, y, z, radius)
 
@@ -137,7 +137,6 @@ class Displayer:
         if index < len(self.spheres):
             self.spheres.pop(index)
             self.robot_arm.remove_sphere(index)
-            self.screen.update_grid()
 
 
     def change_arm(self, arm_type):
@@ -159,7 +158,6 @@ class Displayer:
         self.cdf_solver.robotic_arm = self.robot_arm
         self.display_angle_1 = 0
         self.display_angle_2 = 1
-        self.screen.update_grid()
         self.sliders.clear()
         new_buttons = []
         for i in range(len(self.buttons)):
@@ -174,9 +172,6 @@ class Displayer:
 
 
     def update(self, delta_time, scroll):
-        for slider in self.sliders:
-            if slider.update() and slider.index != self.display_angle_1 and slider.index != self.display_angle_2:
-                self.screen.update_grid()
         if self.buttons[0].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = False
         if self.buttons[1].is_hovered() and pygame.mouse.get_pressed()[0]:
@@ -193,12 +188,16 @@ class Displayer:
             self.mode = SolveMode.SOLVE
         if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.add_sphere(0, 0, 0.0, 0.5)
-
         if self.buttons[6].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.change_arm("Scara")
+            self.screen.changeSolver(self.sdf_solver)
         if self.buttons[7].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.change_arm("Scara3D")
+            self.screen.changeSolver(self.cdf_solver)
+
         if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Scara")
+        if self.buttons[9].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Scara3D")
+        if self.buttons[10].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Spherical")
 
         for button in self.buttons:
@@ -213,7 +212,6 @@ class Displayer:
                             self.change_first_display_angle = True
                         self.sdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
                         self.cdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
-                        self.screen.update_grid()
 
         if self.solving:
             if self.mode == SolveMode.DEFAULT:
@@ -457,7 +455,6 @@ class Displayer:
             if length != 0:
                 self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - vector[i] / length * 0.5 * delta_time)
                 self.sliders[i].value = self.robot_arm.get_angle(i)
-                self.screen.update_grid()
 
 
     def geodesic(self, delta_time):

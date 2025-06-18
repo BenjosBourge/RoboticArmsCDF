@@ -62,6 +62,11 @@ class FastNeuralScreen:
         self.font = pygame.font.Font(None, 36)
         self.font_range = pygame.font.Font(None, 24)
 
+    def changeSolver(self, solver):
+        self.solver = solver
+        global global_solver
+        global_solver = solver
+
     def update(self, delta_time, scroll):
         pass
 
@@ -102,9 +107,6 @@ class FastNeuralScreen:
             else:
                 color = (255, 0, 0)  # TN = RED
         return color
-
-    def update_grid(self):
-        pass
 
     def draw(self, screen):
         if calc_done.is_set():
