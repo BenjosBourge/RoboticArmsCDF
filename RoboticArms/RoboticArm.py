@@ -51,6 +51,14 @@ class RoboticArm:
             raise IndexError("Angle index out of range")
 
 
+    #copy
+    def copy(self):
+        new_arm = RoboticArm()
+        new_arm.set_arm([(self.l[i], self.a[i], self.m[i]) for i in range(self.nb_angles)])
+        new_arm.spheres = [sphere.copy() for sphere in self.spheres]
+        return new_arm
+
+
     # forward_kinematic
     def rot_x(self, angle):
         return np.array([[1, 0, 0, 0],

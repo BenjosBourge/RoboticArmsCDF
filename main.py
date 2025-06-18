@@ -1,15 +1,9 @@
 import pygame
 from sklearn.datasets import *
+import threading
 
-from Solver.BatchNeuralNetwork import BatchNeuralNetwork
-from Solver.NeuralNetwork import NeuralNetwork
-from Solver.GroundTrueSDF import GroundTrueSDF
-from Solver.ParticleSwarmAlgorithm import PSO
-from Solver.ScaraSDF import ScaraSDF
-from Solver.ScaraCDF import ScaraCDF
-
-from Environment import NeuralScreen
 from Environment import Displayer
+from Environment.FastNeuralScreen import worker
 
 
 def main():
@@ -32,6 +26,9 @@ def main():
 
     running = True
     deltatime = 0.
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
     while running:
         screen.fill((0, 0, 0))  # Background color
 

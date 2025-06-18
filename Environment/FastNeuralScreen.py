@@ -1,7 +1,50 @@
+import time
 
 import pygame
 import numpy as np
 import math
+from multiprocessing import Pool
+import threading
+
+from pygame.display import update
+
+
+# Shared arrays
+array_main = np.zeros((51, 51), dtype=float)
+array_worker = np.zeros((51, 51), dtype=float)
+global_solver = None
+
+# Event to signal completion
+calc_done = threading.Event()
+
+
+def calculate_grid():
+    grid = np.zeros((51, 51), dtype=float)
+    if global_solver is None:
+        return grid
+    solver = global_solver.copy()
+    for row in range(51):
+        for col in range(51):
+            value = solver.solve((col / ((50) / 2) - 1.) * np.pi,
+                                      (row / ((50) / 2) - 1.) * -1 * np.pi)
+            if value < 0:
+                value = math.floor(-value / 0.01) * 2. * -1
+            else:
+                value = math.floor(value / 0.6) * 0.2
+            value = (value + 1) / 2.0
+            grid[row][col] = value
+    return grid
+
+
+
+def worker():
+    global array_worker
+    while True:
+        # Simulate calculationp
+        n = calculate_grid()
+        array_worker[:] = n[:]
+        # Signal main thread
+        calc_done.set()
 
 class FastNeuralScreen:
     def __init__(self, x, y, solver, nb_tiles=51):
@@ -9,6 +52,8 @@ class FastNeuralScreen:
         self.y = y
         self.range = 10.
         self.solver = solver
+        global global_solver
+        global_solver = solver
         self.sdfMode = False
         self.step_value = 0.2
         self.show_loss = True
@@ -16,7 +61,6 @@ class FastNeuralScreen:
         self.nb_tiles = nb_tiles
         self.font = pygame.font.Font(None, 36)
         self.font_range = pygame.font.Font(None, 24)
-        self.grid = np.zeros((nb_tiles, nb_tiles), dtype=float)
 
     def update(self, delta_time, scroll):
         pass
@@ -60,21 +104,16 @@ class FastNeuralScreen:
         return color
 
     def update_grid(self):
-        for row in range(self.nb_tiles):
-            for col in range(self.nb_tiles):
-                value = self.solver.solve((col / ((self.nb_tiles - 1)/2) - 1.) * self.range, (row / ((self.nb_tiles - 1)/2) - 1.) * -1 * self.range)
-                if self.sdfMode:
-                    if value < 0:
-                        value = math.floor(-value / 0.01) * 2. * -1
-                    else:
-                        value = math.floor(value / self.step_value) * 0.2
-                    value = (value + 1) / 2.0
-                self.grid[row][col] = value
+        pass
 
     def draw(self, screen):
+        if calc_done.is_set():
+            array_main[:] = array_worker[:]
+            calc_done.clear()
+
         for row in range(self.nb_tiles):
             for col in range(self.nb_tiles):
-                value = self.grid[row][col]
+                value = array_main[row][col]
                 color = self.getColor(value)
                 rect = pygame.Rect(col * (306 / self.nb_tiles) + self.x, row * (306 / self.nb_tiles) + self.y, 306 / (self.nb_tiles - 1), 306 / (self.nb_tiles - 1))
                 pygame.draw.rect(screen, color, rect)

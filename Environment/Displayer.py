@@ -8,6 +8,9 @@ from RoboticArms import Scara
 from RoboticArms import Scara3
 from RoboticArms import Spherical
 
+from Solver import SDFSolver
+from Solver import CDFSolver
+
 class SolveMode(Enum):
     DEFAULT = 0
     GRADIENT = 1
@@ -60,57 +63,14 @@ class Button:
         screen.blit(text_surface, text_rect)
 
 
-
-class SDFSolver:
-    def __init__(self, robotic_arm):
-        self.robotic_arm = robotic_arm
-        self.a1 = 0
-        self.a2 = 1
-
-    def set_angles(self, a1, a2):
-        self.a1 = a1
-        self.a2 = a2
-
-    def solve(self, x, y):
-        old_a1 = self.robotic_arm.get_angle(self.a1)
-        old_a2 = self.robotic_arm.get_angle(self.a2)
-        self.robotic_arm.set_angle(self.a1, x)
-        self.robotic_arm.set_angle(self.a2, y)
-        value = self.robotic_arm.get_sdf_distance()
-        self.robotic_arm.set_angle(self.a1, old_a1)
-        self.robotic_arm.set_angle(self.a2, old_a2)
-        return value
-
-
-class CDFSolver:
-    def __init__(self, robotic_arm):
-        self.robotic_arm = robotic_arm
-        self.a1 = 0
-        self.a2 = 1
-
-    def set_angles(self, a1, a2):
-        self.a1 = a1
-        self.a2 = a2
-
-    def solve(self, x, y):
-        old_a1 = self.robotic_arm.get_angle(self.a1)
-        old_a2 = self.robotic_arm.get_angle(self.a2)
-        self.robotic_arm.set_angle(self.a1, x)
-        self.robotic_arm.set_angle(self.a2, y)
-        value = self.robotic_arm.get_sdf_distance()
-        self.robotic_arm.set_angle(self.a1, old_a1)
-        self.robotic_arm.set_angle(self.a2, old_a2)
-        return value
-
-
 class Displayer:
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.robot_arm = Scara.ScaraArm()
         self.desired_robot_arm = Scara.ScaraArm()
-        self.sdf_solver = SDFSolver(self.robot_arm)
-        self.cdf_solver = CDFSolver(self.robot_arm)
+        self.sdf_solver = SDFSolver.SDFSolver(self.robot_arm)
+        self.cdf_solver = CDFSolver.CDFSolver(self.robot_arm)
         self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.sdf_solver)
 
         self.screen.range = np.pi
@@ -483,39 +443,36 @@ class Displayer:
 
     # Solving problems
     def gradient(self, delta_time):
-        value = self.solver.solve(self.angle_1, self.angle_2)
-        gvalue_x = self.solver.solve(self.angle_1 + 0.01, self.angle_2) - value
-        gvalue_y = self.solver.solve(self.angle_1, self.angle_2 + 0.01) - value
-        vector = np.array([gvalue_x, gvalue_y])
+        value = self.sdf_solver.get_distance()
+        g = []
+        print(self.robot_arm.nb_angles)
+        for i in range(self.robot_arm.nb_angles):
+            v = self.robot_arm.get_angle(i)
+            self.robot_arm.set_angle(i, v + 0.01)
+            g.append(self.sdf_solver.get_distance() - value)
+            self.robot_arm.set_angle(i, v)
+        vector = np.array(g)
         length = np.linalg.norm(vector)
-        self.angle_1 -= gvalue_x / length * 0.5 * delta_time
-        self.angle_2 -= gvalue_y / length * 0.5 * delta_time
+        for i in range(self.robot_arm.nb_angles):
+            if length != 0:
+                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - vector[i] / length * 0.5 * delta_time)
+                self.sliders[i].value = self.robot_arm.get_angle(i)
+                self.screen.update_grid()
+
 
     def geodesic(self, delta_time):
-        value = self.solver.solve(self.angle_1, self.angle_2)
-        gvalue_x = self.solver.solve(self.angle_1 + 0.01, self.angle_2) - value
-        gvalue_y = self.solver.solve(self.angle_1, self.angle_2 + 0.01) - value
-        vector = np.array([gvalue_x, gvalue_y])
+        value = self.sdf_solver.get_distance()
+        g = []
+        for i in range(self.robot_arm.nb_angles):
+            v = self.robot_arm.get_angle(i)
+            self.robot_arm.set_angle(i, v + 0.01)
+            g.append(self.sdf_solver.get_distance() - value)
+            self.robot_arm.set_angle(i, v)
+        vector = np.array(g)
         length = np.linalg.norm(vector)
-        self.angle_1 += gvalue_y / length * 0.5 * delta_time
-        self.angle_2 -= gvalue_x / length * 0.5 * delta_time
+        for i in range(self.robot_arm.nb_angles):
+            if length != 0:
+                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - vector[i] / length * 0.5 * delta_time)
 
     def solve(self, delta_time):
-        vector = np.array([self.desired_angle_1 - self.angle_1, self.desired_angle_2 - self.angle_2])
-        length = np.linalg.norm(vector)
-
-        nangle_1 = self.angle_1 + (self.desired_angle_1 - self.angle_1) / length * 0.5 * delta_time
-        nangle_2 = self.angle_2 + (self.desired_angle_2 - self.angle_2) / length * 0.5 * delta_time
-        nvalue = self.solver.solve(nangle_1, nangle_2)
-        if nvalue < 0.5:
-            value = self.solver.solve(self.angle_1, self.angle_2)
-            gvalue_x = self.solver.solve(self.angle_1 + 0.01, self.angle_2) - value
-            gvalue_y = self.solver.solve(self.angle_1, self.angle_2 + 0.01) - value
-            vector = np.array([gvalue_x, gvalue_y])
-            length = np.linalg.norm(vector)
-            if gvalue_x != 0 or gvalue_y != 0:
-                self.angle_1 += gvalue_y / length * 0.5 * delta_time
-                self.angle_2 -= gvalue_x / length * 0.5 * delta_time
-        else:
-            self.angle_1 = nangle_1
-            self.angle_2 = nangle_2
+        self.gradient(delta_time)
