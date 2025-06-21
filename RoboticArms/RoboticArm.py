@@ -5,6 +5,7 @@ class RotationMode(Enum):
     X = 0
     Y = 1
     Z = 2
+    TORSO = 3
 
 class RoboticArm:
     def __init__(self):
@@ -57,6 +58,8 @@ class RoboticArm:
         new_arm = RoboticArm()
         new_arm.set_arm([(self.l[i], self.a[i], self.m[i]) for i in range(self.nb_angles)])
         new_arm.spheres = [sphere.copy() for sphere in self.spheres]
+        new_arm.name = self.name
+        new_arm.nb_angles = self.nb_angles
         return new_arm
 
 
@@ -110,6 +113,13 @@ class RoboticArm:
                 mat = self.rot_y(a_i)
             elif self.m[i] == RotationMode.Z:
                 mat = self.rot_z(a_i)
+            elif self.m[i] == RotationMode.TORSO:
+                mat = self.rot_z(a_i)
+                pos_mat = pos_mat.dot(mat)
+                mat = self.m_z(self.l[i])
+                pos_mat = pos_mat.dot(mat)
+                joint_pos.append(pos_mat[0:3, 3])
+                continue
             pos_mat = pos_mat.dot(mat)
             mat = self.m_x(self.l[i])
             pos_mat = pos_mat.dot(mat)

@@ -7,6 +7,7 @@ from Environment import FastNeuralScreen
 from RoboticArms import Scara
 from RoboticArms import Scara3
 from RoboticArms import Spherical
+from RoboticArms import TiagoPal
 
 from Solver import SDFSolver
 from Solver import CDFSolver
@@ -101,12 +102,13 @@ class Displayer:
         self.add_button(400, self.y + 336, 120, 50, "Geodesic", -1)
         self.add_button(530, self.y + 336, 100, 50, "Solve", -1)
         self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
-        self.add_button(800, self.y + 336, 100, 50, "SDF", -1)
-        self.add_button(910, self.y + 336, 100, 50, "CDF", -1)
+        self.add_button(50, self.y + 464, 100, 50, "SDF", -1)
+        self.add_button(160, self.y + 464, 100, 50, "CDF", -1)
 
         self.add_button(50, self.y + 400, 130, 50, "Scara", -1)
         self.add_button(200, self.y + 400, 130, 50, "Scara3D", -1)
         self.add_button(350, self.y + 400, 130, 50, "Spherical", -1)
+        self.add_button(500, self.y + 400, 130, 50, "TiagoPal", -1)
 
         for i in range(self.robot_arm.nb_angles):
             slider_x = self.x
@@ -149,6 +151,9 @@ class Displayer:
         elif arm_type == "Spherical":
             self.robot_arm = Spherical.Spherical()
             self.desired_robot_arm = Spherical.Spherical()
+        elif arm_type == "TiagoPal":
+            self.robot_arm = TiagoPal.TiagoPal()
+            self.desired_robot_arm = TiagoPal.TiagoPal()
         else:
             raise ValueError("Unknown arm type")
 
@@ -172,6 +177,7 @@ class Displayer:
 
 
     def update(self, delta_time, scroll):
+        self.cdf_solver.update(delta_time)
         if self.buttons[0].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = False
         if self.buttons[1].is_hovered() and pygame.mouse.get_pressed()[0]:
@@ -199,6 +205,11 @@ class Displayer:
             self.change_arm("Scara3D")
         if self.buttons[10].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Spherical")
+        if self.buttons[11].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("TiagoPal")
+
+        for slider in self.sliders:
+            slider.update()
 
         for button in self.buttons:
             if button.is_hovered() and pygame.mouse.get_pressed()[0]:
