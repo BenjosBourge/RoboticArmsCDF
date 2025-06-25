@@ -18,15 +18,12 @@ global_solver = None
 calc_done = threading.Event()
 
 
-def calculate_grid():
+def calculate_grid(solver, xy):
     grid = np.zeros((51, 51), dtype=float)
-    if global_solver is None:
-        return grid
-    solver = global_solver.copy()
+    values = solver.solve(xy)
     for row in range(51):
         for col in range(51):
-            value = solver.solve((col / ((50) / 2) - 1.) * np.pi,
-                                      (row / ((50) / 2) - 1.) * -1 * np.pi)
+            value = values[row][col]
             if value < 0:
                 value = math.floor(-value / 0.01) * 2. * -1
             else:
@@ -39,9 +36,26 @@ def calculate_grid():
 
 def worker():
     global array_worker
+    solver = None
+
+    # no need for recalculation
+    x = np.linspace(-math.pi, math.pi, 51)
+    y = np.linspace(-math.pi, math.pi, 51)
+    x, y = np.meshgrid(x, y)
+    xy = np.stack((x, y), axis=-1)
+
     while True:
+        if global_solver is None:
+            continue
+        if solver is None:
+            solver = global_solver.copy()
+        if solver.type != global_solver.type:
+            solver = global_solver.copy()
+
+        solver.robotic_arm = global_solver.robotic_arm.copy()
+
         # Simulate calculationp
-        n = calculate_grid()
+        n = calculate_grid(solver, xy)
         array_worker[:] = n[:]
         # Signal main thread
         calc_done.set()
@@ -61,6 +75,7 @@ class FastNeuralScreen:
         self.nb_tiles = nb_tiles
         self.font = pygame.font.Font(None, 36)
         self.font_range = pygame.font.Font(None, 24)
+        self.grid_calculation = False
 
     def changeSolver(self, solver):
         self.solver = solver

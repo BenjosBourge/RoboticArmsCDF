@@ -21,6 +21,7 @@ class CDFSolver:
         self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
         self.datas = None
         self.batch_size = 400
+        self.type = "CDFSolver"
 
         if robotic_arm is None:
             self.path = 'RoboticArms/models/' + 'None' + '.pth'
@@ -32,11 +33,13 @@ class CDFSolver:
             if not os.path.exists(self.path_dataset):
                 self.create_dataset()
             else:
+                print("Dataset found for", self.robotic_arm.name, "at", self.path_dataset)
                 self.datas = torch.load(self.path_dataset, weights_only=False)
 
             if not os.path.exists(self.path):
                 self.train()
             else:
+                print("Model found for", self.robotic_arm.name, "at", self.path)
                 self.net.load_state_dict(torch.load(self.path))
 
     def set_angles(self, a1, a2):
@@ -179,12 +182,21 @@ class CDFSolver:
         output = output.squeeze().item()
         return output
 
-    def solve(self, x, y):
-        inputs = np.zeros(5, dtype=np.float32)
-        inputs[0] = x
-        inputs[1] = y
-        value = self.inference(inputs)
-        return value
+
+    def solve(self, xy):
+        x = torch.linspace(-math.pi, math.pi, 51)
+        y = torch.linspace(-math.pi, math.pi, 51)
+        grid = torch.cartesian_prod(x, y)  # shape (2601, 2)
+        inputs = torch.zeros((grid.shape[0], 5), dtype=torch.float32, device=self.device)
+        inputs[:, 0] = grid[:, 0]
+        inputs[:, 1] = grid[:, 1]
+        inputs[:, 2] = self.robotic_arm.spheres[0][0][0]  # x position of the first sphere
+        inputs[:, 3] = self.robotic_arm.spheres[0][0][1]
+        inputs[:, 4] = self.robotic_arm.spheres[0][0][2]
+        outputs = self.net(inputs)
+        outputs = outputs.cpu().detach().numpy()
+        outputs = outputs.reshape((51, 51))
+        return outputs
 
     def get_distance(self):
         return self.robotic_arm.get_sdf_distance()
