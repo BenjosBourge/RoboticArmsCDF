@@ -7,6 +7,7 @@ from Environment.FastNeuralScreen import worker
 from RoboticArms.Scara import ScaraArm
 from RoboticArms.Scara3 import Scara3Arm
 from RoboticArms.Spherical import Spherical
+from RoboticArms.Scara7 import Scara7Arm
 from Solver.CDFSolver import CDFSolver
 
 import os
@@ -25,8 +26,9 @@ def main():
             os.remove(file_path)
 
     CDFSolver(ScaraArm())
-    CDFSolver(Scara3Arm())
-    CDFSolver(Spherical())
+    # CDFSolver(Scara3Arm())
+    # CDFSolver(Scara7Arm())
+    # CDFSolver(Spherical())
 
 if __name__ == "__main__":
     main()
