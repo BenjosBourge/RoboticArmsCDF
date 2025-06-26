@@ -76,6 +76,12 @@ class FastNeuralScreen:
         self.font = pygame.font.Font(None, 36)
         self.font_range = pygame.font.Font(None, 24)
         self.grid_calculation = False
+        self.no_thread = False
+
+        x = np.linspace(-math.pi, math.pi, 51)
+        y = np.linspace(-math.pi, math.pi, 51)
+        x, y = np.meshgrid(x, y)
+        self.xy = np.stack((x, y), axis=-1)
 
     def changeSolver(self, solver):
         self.solver = solver
@@ -83,7 +89,9 @@ class FastNeuralScreen:
         global_solver = solver
 
     def update(self, delta_time, scroll):
-        pass
+        if self.no_thread:
+            n = calculate_grid(self.solver, self.xy)
+            array_main[:] = n[:]
 
     def setSDFMode(self, mode):
         self.sdfMode = mode
@@ -149,18 +157,17 @@ class FastNeuralScreen:
             text_surface = self.font_range.render(f"{-self.range:.2f}", True, (255, 255, 255))
             screen.blit(text_surface, (self.x - 5, self.y + 306 + 10))
 
-    def draw_datas(self, screen, datas, values):
+    def draw_datas(self, screen, datas):
         for i in range(datas.shape[0]):
             x = datas[i][0]
             y = datas[i][1]
 
-            value = values[i][0]
-            predicted_value = self.solver.solve(x, y)
-            if predicted_value < 0.5:
-                predicted_value = 0
-            else:
-                predicted_value = 1
-            color = self.getColorMatrix(value, predicted_value)
+            color = (0, 255, 0)
 
-            pygame.draw.circle(screen, color, (150 + x * 15 + self.x, 150 + y * 15 + self.y), 3)
+            pos_x = (x + np.pi) / (np.pi*2)
+            pos_x *= 306
+            pos_y = (y + np.pi) / (np.pi*2)
+            pos_y *= 306
+
+            pygame.draw.circle(screen, color, (pos_x + self.x, pos_y + self.y), 3)
 

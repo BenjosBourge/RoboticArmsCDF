@@ -70,16 +70,18 @@ class CDFSolver:
         print("Creating dataset for", self.robotic_arm.name)
         num_features = self.robotic_arm.nb_angles + 3
         dimensions = self.robotic_arm.nb_angles
-        samples_p = 25
-        max_q_per_p = 5
-        precision_for_q = 50  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
+        samples_p = 1  # Number of samples for each dimension of the workspace
+        max_q_per_p = 50
+        precision_for_q = 200  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
         nb_samples = samples_p**3
         nb_data = nb_samples * max_q_per_p
 
         inputs = np.full((nb_samples, max_q_per_p, num_features), np.inf, dtype=np.float32)
 
         print("Generating workspace grid...")
-        p = self.generate_nd_grid(3, samples_p) # 50 samples for each dimensions of the workspace
+        # p = self.generate_nd_grid(3, samples_p) # 50 samples for each dimensions of the workspace
+        p = np.zeros((1, 3), dtype=np.float32)
+        p[0, 0] = 4
         print("Generating angles grid...")
         possible_q = self.generate_nd_grid(dimensions, precision_for_q) # 50 samples for each angle
         joint_p = []
@@ -134,11 +136,10 @@ class CDFSolver:
             q = np.random.uniform(-np.pi, np.pi, (self.batch_size, self.robotic_arm.nb_angles)) # shape (b, n)
             q = torch.from_numpy(q).float().to(self.device)  # Convert to torch tensor
             q_datas = self.datas[:,:,3:] # shape (125000, 100, n)
-            N = 5
+            N = 1
             indices = np.random.choice(q_datas.shape[0], size=N, replace=False)
             q_datas = q_datas[indices]  # shape: (N, 100, n)
             q_datas = torch.from_numpy(q_datas).float().to(self.device)  # Convert to torch tensor
-            print(q_datas)
             # groundTrue
             A_exp = q.unsqueeze(0).unsqueeze(2)  # (1, b, 1, n)
             B_exp = q_datas.unsqueeze(1)  # (N, 1, 100, n)
@@ -161,6 +162,7 @@ class CDFSolver:
             # Forward pass
             outputs = self.net(inputs)
             loss = groundtrue - outputs  # shape (N * b, 1)
+            loss = torch.abs(loss)
             loss = loss.mean()
 
             # Backward and optimize
