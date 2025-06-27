@@ -4,6 +4,7 @@ import math
 import os
 
 from sympy import closest_points
+from torch.onnx.symbolic_opset9 import tensor
 from torch.utils.data import TensorDataset, DataLoader
 
 from RoboticArms.Scara import ScaraArm
@@ -18,7 +19,7 @@ class CDFSolver:
         self.a2 = 1
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Using device:", self.device)
-        self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
+        self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
         self.datas = None
         self.batch_size = 4000
         self.type = "CDFSolver"
@@ -136,38 +137,35 @@ class CDFSolver:
         min_loss = float('inf')
         best_model = None
         n = self.robotic_arm.nb_angles
+
+        x = torch.linspace(-math.pi, math.pi, 100)
+        y = torch.linspace(-math.pi, math.pi, 100)
+        inputs = torch.cartesian_prod(x, y)  # shape (10000, 2)
+        inputs = inputs.to(self.device)
+        groundtrue = torch.norm(inputs[:, :2], dim=-1, keepdim=True)
+        groundtrue.to(self.device)
+
+        print(inputs[0:5, :])
+        print(groundtrue[0:5])
+
+        col = torch.zeros((1, 3), dtype=torch.float32, device=self.device)
+        col[0, 0] = 4.
+        col = col.repeat(inputs.shape[0], 1)  # shape (10000, 3)
+        inputs = torch.cat([inputs, col], dim=-1)  # shape (10000, 5)
+
         for epoch in range(num_epoch):
-            b = self.batch_size
-            q = np.random.uniform(-np.pi, np.pi, (b, self.robotic_arm.nb_angles)) # shape (b, n)
-            q = torch.from_numpy(q).float().to(self.device)  # Convert to torch tensor
-            q_datas = self.datas[:,:,3:] # shape (125000, 100, n)
-            N = 1
-            indices = np.random.choice(q_datas.shape[0], size=N, replace=False)
-            q_datas = q_datas[indices]  # shape: (N, 100, n)
-            q_datas = torch.from_numpy(q_datas).float().to(self.device)  # Convert to torch tensor
-            # groundTrue
-            A_exp = q.unsqueeze(0).unsqueeze(2)  # (1, b, 1, n)
-            B_exp = q_datas.unsqueeze(1)  # (N, 1, 100, n)
-            B_exp = torch.where(torch.isinf(B_exp), torch.full_like(B_exp, 1e3), B_exp)
-            distances = torch.norm(A_exp - B_exp, dim=-1)  # (N, b, 100)
-            groundtrue = torch.min(distances, dim=2).values  # (N, b)
-            groundtrue = groundtrue.reshape(-1, 1) # (N * b, 1)
-
-            p = self.datas[:,0,:3]  # Shape: (N, 3)
-            p = p[indices]
-            p = torch.from_numpy(p).float().to(self.device)  # Convert to torch tensor
-            A_exp = p.unsqueeze(1)  # Shape: (N, 1, 3)
-            B_exp = q.unsqueeze(0) # Shape: (1, b, n)
-
-            A_broadcasted = A_exp.expand(N, b, 3) # shape: (N, b, 3)
-            B_broadcasted = B_exp.expand(N, b, n) # shape: (N, b, n)
-            inputs = torch.cat([A_broadcasted, B_broadcasted], dim=-1)  # shape (N, b, 3+n)
-            inputs = inputs.reshape(-1, n+3)  # shape (N * b, 3+n)
-
             # Forward pass
-            outputs = self.net(inputs)
-            loss = groundtrue - outputs  # shape (N * b, 1)
-            loss = torch.abs(loss)
+            N = 10000  # total number of elements
+            k = 100  # how many random indices you want
+
+            indices = torch.randperm(N)[:k]
+            batch_inputs = inputs[indices]  # shape (k, 5)
+            batch_groundtrue = groundtrue[indices]  # shape (k, 1)
+            outputs = self.net(batch_inputs)
+            loss = batch_groundtrue - outputs  # shape (N * b, 1)
+            min_diff = torch.min(loss)  # shape (N * b, 1)
+            max_diff = torch.max(loss)  # shape (N * b, 1)
+            loss = torch.pow(loss, 2)
             loss = loss.mean()
 
             if loss < min_loss:
@@ -179,6 +177,7 @@ class CDFSolver:
             loss.backward()
             optimizer.step()
             print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}, Min Loss: {min_loss:.4f}")
+            print("Min diff:", min_diff.item(), "Max diff:", max_diff.item())
 
         print("Training completed for", self.robotic_arm.name)
         torch.save(best_model, self.path)
@@ -217,3 +216,49 @@ class CDFSolver:
         new_solver = CDFSolver(robotic_arm)
         new_solver.set_angles(self.a1, self.a2)
         return new_solver
+
+
+
+#         for epoch in range(num_epoch):
+#             b = 4000
+#             q = np.random.uniform(-np.pi, np.pi, (b, self.robotic_arm.nb_angles)) # shape (b, n)
+#             q = torch.from_numpy(q).float().to(self.device)  # Convert to torch tensor
+#             q_datas = self.datas[:,:,3:] # shape (125000, 100, n)
+#             N = 1
+#             indices = np.random.choice(q_datas.shape[0], size=N, replace=False)
+#             q_datas = q_datas[indices]  # shape: (N, 100, n)
+#             q_datas = torch.from_numpy(q_datas).float().to(self.device)  # Convert to torch tensor
+#             # groundTrue
+#             q_exp = q.unsqueeze(0).unsqueeze(2)  # (1, b, 1, n)
+#             qp_exp = q_datas.unsqueeze(1)  # (N, 1, 100, n)
+#             qp_exp = torch.where(torch.isinf(qp_exp), torch.full_like(qp_exp, 1e3), qp_exp)
+#             distances = torch.norm(q_exp - qp_exp, dim=-1)  # (N, b, 100)
+#             groundtrue = torch.min(distances, dim=2).values  # (N, b)
+#             groundtrue = groundtrue.reshape(-1, 1) # (N * b, 1)
+#
+#             p = self.datas[:,0,:3]  # Shape: (N, 3)
+#             p = p[indices]
+#             p = torch.from_numpy(p).float().to(self.device)  # Convert to torch tensor
+#             A_exp = p.unsqueeze(1)  # Shape: (N, 1, 3)
+#             B_exp = q.unsqueeze(0) # Shape: (1, b, n)
+#
+#             A_broadcasted = A_exp.expand(N, b, 3) # shape: (N, b, 3)
+#             B_broadcasted = B_exp.expand(N, b, n) # shape: (N, b, n)
+#             inputs = torch.cat([A_broadcasted, B_broadcasted], dim=-1)  # shape (N, b, 3+n)
+#             inputs = inputs.reshape(-1, n+3)  # shape (N * b, 3+n)
+#
+#             # Forward pass
+#             outputs = self.net(inputs)
+#             loss = groundtrue - outputs  # shape (N * b, 1)
+#             loss = torch.abs(loss)
+#             loss = loss.mean()
+#
+#             if loss < min_loss:
+#                 min_loss = loss.item()
+#                 best_model = self.net.state_dict()
+#
+#             # Backward and optimize
+#             optimizer.zero_grad()
+#             loss.backward()
+#             optimizer.step()
+#             print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}, Min Loss: {min_loss:.4f}")

@@ -18,12 +18,12 @@ from Solver.SDFSolver import SDFSolver
 
 def main():
     folder = "RoboticArms/datas"
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-    folder = "RoboticArms/models"
+    # for filename in os.listdir(folder):
+    #    file_path = os.path.join(folder, filename)
+    #    if os.path.isfile(file_path):
+    #        os.remove(file_path)
 
+    folder = "RoboticArms/models"
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
         if os.path.isfile(file_path):
