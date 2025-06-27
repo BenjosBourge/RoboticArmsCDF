@@ -52,10 +52,8 @@ def main():
     cdfscreen.show_loss = False
     cdfscreen.no_thread = True
 
-    print("Datas shape:", solver.datas.shape)
     datas = np.zeros((solver.datas.shape[1], 2))
     for i in range(solver.datas.shape[1]):
-        print("Data point", i, ":", solver.datas[0, i, 3:5])
         datas[i, 0] = solver.datas[0, i, 3]
         datas[i, 1] = solver.datas[0, i, 4]
 

@@ -20,7 +20,7 @@ class CDFSolver:
         print("Using device:", self.device)
         self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
         self.datas = None
-        self.batch_size = 400
+        self.batch_size = 4000
         self.type = "CDFSolver"
 
         if robotic_arm is None:
@@ -90,7 +90,7 @@ class CDFSolver:
         print("Generating pairs of (p, q) for dataset...")
         for q in possible_q:
             for i in range(len(q)):
-                self.robotic_arm.set_angle(0, q[i])  # Set the first angle
+                self.robotic_arm.set_angle(i, q[i])
             joints = self.robotic_arm.forward_kinematic()
             for joint in joints:
                 joint_p.append(joint)
@@ -98,7 +98,7 @@ class CDFSolver:
         joint_p = np.array(joint_p)
         _q = np.array(_q)
 
-        print("Number of pairs:", len(joint_p))
+        print("pairs:", joint_p.shape, _q.shape)
 
         for j in range(len(p)):
             _p = p[j]
@@ -109,10 +109,12 @@ class CDFSolver:
             for i in range(len(dist)):
                 if index >= max_index:
                     break
-                if dist[i] < 0.5:
-                    inputs[j, index, :3] = _p
+                if dist[i] < 0.1:
+                    inputs[j, index, :3] = _p # _p ?
                     inputs[j, index, 3:] = _q[i]
                     index += 1
+                    for k in range(len(possible_q[0])):
+                        self.robotic_arm.set_angle(0, possible_q[0][k])  # Set the first angle
 
             print("Progress:", (j / len(p)) * 100, "%")
 
@@ -131,9 +133,12 @@ class CDFSolver:
         print("Training started for", self.robotic_arm.name)
 
         loss = None
+        min_loss = float('inf')
+        best_model = None
         n = self.robotic_arm.nb_angles
         for epoch in range(num_epoch):
-            q = np.random.uniform(-np.pi, np.pi, (self.batch_size, self.robotic_arm.nb_angles)) # shape (b, n)
+            b = self.batch_size
+            q = np.random.uniform(-np.pi, np.pi, (b, self.robotic_arm.nb_angles)) # shape (b, n)
             q = torch.from_numpy(q).float().to(self.device)  # Convert to torch tensor
             q_datas = self.datas[:,:,3:] # shape (125000, 100, n)
             N = 1
@@ -154,8 +159,8 @@ class CDFSolver:
             A_exp = p.unsqueeze(1)  # Shape: (N, 1, 3)
             B_exp = q.unsqueeze(0) # Shape: (1, b, n)
 
-            A_broadcasted = A_exp.expand(N, 400, 3) # shape: (N, b, 3)
-            B_broadcasted = B_exp.expand(N, 400, n) # shape: (N, b, n)
+            A_broadcasted = A_exp.expand(N, b, 3) # shape: (N, b, 3)
+            B_broadcasted = B_exp.expand(N, b, n) # shape: (N, b, n)
             inputs = torch.cat([A_broadcasted, B_broadcasted], dim=-1)  # shape (N, b, 3+n)
             inputs = inputs.reshape(-1, n+3)  # shape (N * b, 3+n)
 
@@ -165,14 +170,18 @@ class CDFSolver:
             loss = torch.abs(loss)
             loss = loss.mean()
 
+            if loss < min_loss:
+                min_loss = loss.item()
+                best_model = self.net.state_dict()
+
             # Backward and optimize
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}")
+            print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}, Min Loss: {min_loss:.4f}")
 
         print("Training completed for", self.robotic_arm.name)
-        torch.save(self.net.state_dict(), self.path)
+        torch.save(best_model, self.path)
 
 
     #eval
