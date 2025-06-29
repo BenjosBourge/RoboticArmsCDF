@@ -138,25 +138,31 @@ class CDFSolver:
         best_model = None
         n = self.robotic_arm.nb_angles
 
-        x = torch.linspace(-math.pi, math.pi, 100)
-        y = torch.linspace(-math.pi, math.pi, 100)
-        inputs = torch.cartesian_prod(x, y)  # shape (10000, 2)
-        inputs = inputs.to(self.device)
-        groundtrue = torch.norm(inputs[:, :2], dim=-1, keepdim=True)
+        x = torch.linspace(-math.pi, math.pi, 50)
+        y = torch.linspace(-math.pi, math.pi, 50)
+        q_grid = torch.cartesian_prod(x, y)  # shape (2500, 2)
+        q_grid = q_grid.to(self.device)
+
+        x = torch.linspace(-4, 4, 50)
+        y = torch.linspace(-4, 4, 50)
+        p_grid = torch.cartesian_prod(x, y)  # shape (2500, 2)
+        p_grid = p_grid.to(self.device)
+
+        q_repeat = q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, 2500, 2)
+        p_repeat = p_grid.unsqueeze(0).repeat(q_grid.size(0), 1, 1)  # (2500, 2500, 2)
+        combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, 2500, 4)
+        inputs = combined.view(-1, 4)# (6250000, 4)
+
+        col = torch.zeros((6250000, 1), dtype=torch.float32, device=self.device) # shape (6250000, 1)
+        inputs = torch.cat([inputs, col], dim=-1)  # shape (6250000, 5)
+
+        groundtrue = torch.norm(inputs[:, :2] - inputs[:, 2:4], dim=-1, keepdim=True)
         groundtrue.to(self.device)
-
-        print(inputs[0:5, :])
-        print(groundtrue[0:5])
-
-        col = torch.zeros((1, 3), dtype=torch.float32, device=self.device)
-        col[0, 0] = 4.
-        col = col.repeat(inputs.shape[0], 1)  # shape (10000, 3)
-        inputs = torch.cat([inputs, col], dim=-1)  # shape (10000, 5)
 
         for epoch in range(num_epoch):
             # Forward pass
-            N = 10000  # total number of elements
-            k = 100  # how many random indices you want
+            N = 6250000  # total number of elements
+            k = 40000  # how many random indices you want
 
             indices = torch.randperm(N)[:k]
             batch_inputs = inputs[indices]  # shape (k, 5)
@@ -177,7 +183,7 @@ class CDFSolver:
             loss.backward()
             optimizer.step()
             print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}, Min Loss: {min_loss:.4f}")
-            print("Min diff:", min_diff.item(), "Max diff:", max_diff.item())
+            # print("Min diff:", min_diff.item(), "Max diff:", max_diff.item())
 
         print("Training completed for", self.robotic_arm.name)
         torch.save(best_model, self.path)
