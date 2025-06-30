@@ -40,7 +40,7 @@ def worker():
 
     # no need for recalculation
     x = np.linspace(-math.pi, math.pi, 51)
-    y = np.linspace(-math.pi, math.pi, 51)
+    y = np.linspace(math.pi, -math.pi, 51)
     x, y = np.meshgrid(x, y)
     xy = np.stack((x, y), axis=-1)
 
@@ -79,7 +79,7 @@ class FastNeuralScreen:
         self.no_thread = False
 
         x = np.linspace(-math.pi, math.pi, 51)
-        y = np.linspace(-math.pi, math.pi, 51)
+        y = np.linspace(math.pi, -math.pi, 51)
         x, y = np.meshgrid(x, y)
         self.xy = np.stack((x, y), axis=-1)
 

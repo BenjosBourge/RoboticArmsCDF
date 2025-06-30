@@ -354,6 +354,7 @@ class Displayer:
         middle = (self.x + 153 + 612, self.y + 153)
         pygame.draw.circle(screen, (0, 0, 0), middle, 5)
         joint_pos = robot_arm.forward_kinematic()
+        a = robot_arm.a
 
         #shadow
         old_pos = middle

@@ -142,6 +142,13 @@ class CDFSolver:
         y = torch.linspace(-math.pi, math.pi, 50)
         q_grid = torch.cartesian_prod(x, y)  # shape (2500, 2)
         q_grid = q_grid.to(self.device)
+        new_q_grid = np.zeros((2500, 3), dtype=np.float32)
+        for i in range(2500):
+            a = q_grid[i, :2].cpu().numpy()
+            for j in range(self.robotic_arm.nb_angles):
+                self.robotic_arm.set_angle(j, a[j])
+            new_q_grid[i] = self.robotic_arm.forward_kinematic()[-1]
+        new_q_grid = torch.tensor(new_q_grid, dtype=torch.float32, device=self.device)
 
         x = torch.linspace(-4, 4, 50)
         y = torch.linspace(-4, 4, 50)
@@ -153,10 +160,24 @@ class CDFSolver:
         combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, 2500, 4)
         inputs = combined.view(-1, 4)# (6250000, 4)
 
+        q_repeat = new_q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, 2500, 3)
+        p_repeat = p_grid.unsqueeze(0).repeat(new_q_grid.size(0), 1, 1)  # (2500, 2500, 2)
+        combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, 2500, 5)
+        new_inputs = combined.view(-1, 5)  # (6250000, 5)
+        print("q_grid shape:", q_grid.shape)
+        print("p_grid shape:", p_grid.shape)
+        print("new_q_grid shape:", new_q_grid.shape)
+        print("q_repeat shape:", q_repeat.shape)
+        print("p_repeat shape:", p_repeat.shape)
+        print("combined shape:", combined.shape)
+        print("new_inputs shape:", new_inputs.shape)
+
         col = torch.zeros((6250000, 1), dtype=torch.float32, device=self.device) # shape (6250000, 1)
         inputs = torch.cat([inputs, col], dim=-1)  # shape (6250000, 5)
 
-        groundtrue = torch.norm(inputs[:, :2] - inputs[:, 2:4], dim=-1, keepdim=True)
+        inputs = inputs.to(self.device)  # Move inputs to the device
+
+        groundtrue = torch.norm(new_inputs[:, :3] - inputs[:, 2:5], dim=-1, keepdim=True)
         groundtrue.to(self.device)
 
         for epoch in range(num_epoch):
@@ -201,11 +222,11 @@ class CDFSolver:
 
     def solve(self, xy):
         x = torch.linspace(-math.pi, math.pi, 51)
-        y = torch.linspace(-math.pi, math.pi, 51)
+        y = torch.linspace(math.pi, -math.pi, 51)
         grid = torch.cartesian_prod(x, y)  # shape (2601, 2)
         inputs = torch.zeros((grid.shape[0], 5), dtype=torch.float32, device=self.device)
-        inputs[:, 0] = grid[:, 0]
-        inputs[:, 1] = grid[:, 1]
+        inputs[:, 0] = grid[:, 1]
+        inputs[:, 1] = grid[:, 0]
         inputs[:, 2] = self.robotic_arm.spheres[0][0][0]  # x position of the first sphere
         inputs[:, 3] = self.robotic_arm.spheres[0][0][1]
         inputs[:, 4] = self.robotic_arm.spheres[0][0][2]
