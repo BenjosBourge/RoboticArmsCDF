@@ -18,9 +18,9 @@ global_solver = None
 calc_done = threading.Event()
 
 
-def calculate_grid(solver, xy):
+def calculate_grid(solver):
     grid = np.zeros((51, 51), dtype=float)
-    values = solver.solve(xy)
+    values = solver.solve()
     for row in range(51):
         for col in range(51):
             value = values[row][col]
@@ -38,12 +38,6 @@ def worker():
     global array_worker
     solver = None
 
-    # no need for recalculation
-    x = np.linspace(-math.pi, math.pi, 51)
-    y = np.linspace(math.pi, -math.pi, 51)
-    x, y = np.meshgrid(x, y)
-    xy = np.stack((x, y), axis=-1)
-
     while True:
         if global_solver is None:
             continue
@@ -55,7 +49,7 @@ def worker():
         solver.robotic_arm = global_solver.robotic_arm.copy()
 
         # Simulate calculationp
-        n = calculate_grid(solver, xy)
+        n = calculate_grid(solver)
         array_worker[:] = n[:]
         # Signal main thread
         calc_done.set()
@@ -78,11 +72,6 @@ class FastNeuralScreen:
         self.grid_calculation = False
         self.no_thread = False
 
-        x = np.linspace(-math.pi, math.pi, 51)
-        y = np.linspace(math.pi, -math.pi, 51)
-        x, y = np.meshgrid(x, y)
-        self.xy = np.stack((x, y), axis=-1)
-
     def changeSolver(self, solver):
         self.solver = solver
         global global_solver
@@ -90,7 +79,7 @@ class FastNeuralScreen:
 
     def update(self, delta_time, scroll):
         if self.no_thread:
-            n = calculate_grid(self.solver, self.xy)
+            n = calculate_grid(self.solver)
             array_main[:] = n[:]
 
     def setSDFMode(self, mode):
@@ -159,6 +148,8 @@ class FastNeuralScreen:
 
     def draw_datas(self, screen, datas):
         for i in range(datas.shape[0]):
+            if datas[i][0] == float('inf') or datas[i][1] == float('inf'):
+                continue
             x = datas[i][0]
             y = datas[i][1]
 

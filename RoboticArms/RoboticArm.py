@@ -147,3 +147,21 @@ class RoboticArm:
                 if nvalue < value:
                     value = nvalue
         return value
+
+    # SDF
+    def get_sdf_distance_from_pos(self, joints):
+        value = 10.
+        for i in range(len(joints)):
+            x, y, z = joints[i]
+            y *= -1
+
+            for sphere in self.spheres:
+                sphere_pos = sphere[0]
+                sphere_radius = sphere[1]
+                dx = x - sphere_pos[0]
+                dy = y - sphere_pos[1]
+                dz = z - sphere_pos[2]
+                nvalue = np.sqrt(dx * dx + dy * dy + dz * dz) - sphere_radius
+                if nvalue < value:
+                    value = nvalue
+        return value

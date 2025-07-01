@@ -268,7 +268,7 @@ class Displayer:
                 distance_x = pos[0] - (sphere_pos[0] * 38 + (self.x + 153 + 306))
                 distance_y = pos[1] - (sphere_pos[1] * 38 * -1 + (self.y + 153))
                 if distance_x ** 2 + distance_y ** 2 < sphere_radius ** 2:
-                    self.set_spheres(i, self.spheres[i][0][0], self.spheres[i][0][1], self.spheres[i][1] + scroll * 0.6 * delta_time)
+                    self.set_spheres(i, self.spheres[i][0][0], self.spheres[i][0][1], self.spheres[i][0][2], self.spheres[i][1] + scroll * 0.6 * delta_time)
                     break
 
         if pygame.mouse.get_pressed()[0]:

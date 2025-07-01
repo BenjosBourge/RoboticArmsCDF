@@ -71,23 +71,23 @@ class CDFSolver:
         print("Creating dataset for", self.robotic_arm.name)
         num_features = self.robotic_arm.nb_angles + 3
         dimensions = self.robotic_arm.nb_angles
-        samples_p = 1  # Number of samples for each dimension of the workspace
+        samples_p = 50  # Number of samples for each dimension of the workspace
         max_q_per_p = 50
         precision_for_q = 200  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
         nb_samples = samples_p**3
         nb_data = nb_samples * max_q_per_p
 
-        inputs = np.full((nb_samples, max_q_per_p, num_features), np.inf, dtype=np.float32)
+        inputs = torch.full((nb_samples, max_q_per_p, num_features), float('inf'), dtype=torch.float32).to(self.device)
 
         print("Generating workspace grid...")
-        # p = self.generate_nd_grid(3, samples_p) # 50 samples for each dimensions of the workspace
-        p = np.zeros((1, 3), dtype=np.float32)
-        p[0, 0] = 4
+        p = self.generate_nd_grid(3, samples_p) # 50 samples for each dimensions of the workspace
         print("Generating angles grid...")
         possible_q = self.generate_nd_grid(dimensions, precision_for_q) # 50 samples for each angle
         joint_p = []
         _q = []
 
+        # for each q in possible_q, set the angles of the robotic arm and get the joint positions
+        # makes pair of associated p positions from every q of possible q
         print("Generating pairs of (p, q) for dataset...")
         for q in possible_q:
             for i in range(len(q)):
@@ -97,38 +97,42 @@ class CDFSolver:
                 joint_p.append(joint)
                 _q.append(q)
         joint_p = np.array(joint_p)
+        joint_p = torch.from_numpy(joint_p).float().to(self.device)
         _q = np.array(_q)
+        _q = torch.from_numpy(_q).float().to(self.device)
 
         print("pairs:", joint_p.shape, _q.shape)
+        print("p:", len(p), "possible q:", len(possible_q))
 
         for j in range(len(p)):
             _p = p[j]
             max_index = max_q_per_p
             index = 0
+            _p = torch.tensor(_p, dtype=torch.float32).to(self.device)
 
-            dist = np.linalg.norm(_p - joint_p, axis=1)
+            dist = torch.norm(joint_p - _p, dim=1)
+            dist = dist[dist <= 0.1]
             for i in range(len(dist)):
                 if index >= max_index:
                     break
-                if dist[i] < 0.1:
-                    inputs[j, index, :3] = _p # _p ?
-                    inputs[j, index, 3:] = _q[i]
-                    index += 1
-                    for k in range(len(possible_q[0])):
-                        self.robotic_arm.set_angle(0, possible_q[0][k])  # Set the first angle
+                inputs[j, index, :3] = _p
+                inputs[j, index, 3:] = _q[i]
+                index += 1
+                for k in range(len(possible_q[0])):
+                    self.robotic_arm.set_angle(0, possible_q[0][k])  # Set the first angle
 
             print("Progress:", (j / len(p)) * 100, "%")
 
         print("Dataset created for", self.robotic_arm.name, "with", nb_data, "samples.")
         print("Inputs shape:", inputs.shape)
-        mask = ~np.all(np.isinf(inputs), axis=(1, 2))
+        mask = ~torch.isinf(inputs).all(dim=(1, 2))
         inputs = inputs[mask]
         print("Filtered inputs shape:", inputs.shape)
         torch.save(inputs, self.path_dataset)
         self.datas = torch.load(self.path_dataset, weights_only=False)
 
     def train(self):
-        num_epoch = 1000
+        num_epoch = 1
         optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001, weight_decay=1e-5)
         self.net.train()
         print("Training started for", self.robotic_arm.name)
@@ -138,17 +142,12 @@ class CDFSolver:
         best_model = None
         n = self.robotic_arm.nb_angles
 
+        # inputs are every possible pair of (q1, q2, p1, p2, p3) in the workspace
+        # --- start of input q1, q2, p1, p2, p3 ---
         x = torch.linspace(-math.pi, math.pi, 50)
         y = torch.linspace(-math.pi, math.pi, 50)
         q_grid = torch.cartesian_prod(x, y)  # shape (2500, 2)
         q_grid = q_grid.to(self.device)
-        new_q_grid = np.zeros((2500, 3), dtype=np.float32)
-        for i in range(2500):
-            a = q_grid[i, :2].cpu().numpy()
-            for j in range(self.robotic_arm.nb_angles):
-                self.robotic_arm.set_angle(j, a[j])
-            new_q_grid[i] = self.robotic_arm.forward_kinematic()[-1]
-        new_q_grid = torch.tensor(new_q_grid, dtype=torch.float32, device=self.device)
 
         x = torch.linspace(-4, 4, 50)
         y = torch.linspace(-4, 4, 50)
@@ -159,25 +158,30 @@ class CDFSolver:
         p_repeat = p_grid.unsqueeze(0).repeat(q_grid.size(0), 1, 1)  # (2500, 2500, 2)
         combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, 2500, 4)
         inputs = combined.view(-1, 4)# (6250000, 4)
+        # --- end of input q1, q2, p1, p2, p3 ---
 
-        q_repeat = new_q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, 2500, 3)
-        p_repeat = p_grid.unsqueeze(0).repeat(new_q_grid.size(0), 1, 1)  # (2500, 2500, 2)
-        combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, 2500, 5)
-        new_inputs = combined.view(-1, 5)  # (6250000, 5)
-        print("q_grid shape:", q_grid.shape)
-        print("p_grid shape:", p_grid.shape)
-        print("new_q_grid shape:", new_q_grid.shape)
-        print("q_repeat shape:", q_repeat.shape)
-        print("p_repeat shape:", p_repeat.shape)
-        print("combined shape:", combined.shape)
-        print("new_inputs shape:", new_inputs.shape)
+        # --- new_inputs q1, q2 from the p1, p2, p3 ---
+        n = 2
+        equivalence = torch.zeros((2500, n), dtype=torch.float32, device=self.device)  # shape (2500, n)
+
+        # use the data to find the closest p, and from the closest p the closest q'
+        print("Data shape:" , self.datas.shape)
+        for i in range(2500):
+            pass
+
+        # mimic the position of the p points in the inputs
+        equivalence_repeat = equivalence.unsqueeze(0).repeat(equivalence.size(0), 1, 1)  # (2500, 2500, 2)
+        new_inputs = equivalence_repeat.view(-1, n)  # (6250000, 2)
+        # --- end of new_inputs q1, q2 from the p1, p2, p3 ---
+
 
         col = torch.zeros((6250000, 1), dtype=torch.float32, device=self.device) # shape (6250000, 1)
         inputs = torch.cat([inputs, col], dim=-1)  # shape (6250000, 5)
-
         inputs = inputs.to(self.device)  # Move inputs to the device
 
-        groundtrue = torch.norm(new_inputs[:, :3] - inputs[:, 2:5], dim=-1, keepdim=True)
+        # inputs -> q1, q2, p1, p2, p3
+        # new_inputs -> q1, q2 from the p1, p2, p3
+        groundtrue = torch.norm(inputs[:, :2] - new_inputs[:, :2], dim=-1, keepdim=True)
         groundtrue.to(self.device)
 
         for epoch in range(num_epoch):
@@ -220,7 +224,7 @@ class CDFSolver:
         return output
 
 
-    def solve(self, xy):
+    def solve(self):
         x = torch.linspace(-math.pi, math.pi, 51)
         y = torch.linspace(math.pi, -math.pi, 51)
         grid = torch.cartesian_prod(x, y)  # shape (2601, 2)

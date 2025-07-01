@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 class SDFSolver:
@@ -8,20 +9,38 @@ class SDFSolver:
         self.a2 = 1
         self.type = "SDFSolver"
         print("Using SDFSolver with robotic arm:", self.robotic_arm.name)
+        x = np.linspace(-math.pi, math.pi, 51)
+        y = np.linspace(math.pi, -math.pi, 51)
+        x, y = np.meshgrid(x, y)
+        self.xy = np.stack((x, y), axis=-1)
+        self.forward_values = np.zeros((51, 51, 2, 3), dtype=float)
+        self.set_forward_values()
+
+    def set_forward_values(self):
+        for i in range(51):
+            y = self.xy[i][0][1]
+            self.robotic_arm.set_angle(self.a2, y)
+            for j in range(51):
+                x = self.xy[i][j][0]
+                self.robotic_arm.set_angle(self.a1, x)
+                pos = self.robotic_arm.forward_kinematic()
+                for k in range(2):
+                    self.forward_values[i][j][k][0] = pos[k][0]
+                    self.forward_values[i][j][k][1] = pos[k][1]
+                    self.forward_values[i][j][k][2] = pos[k][2]
 
     def set_angles(self, a1, a2):
         self.a1 = a1
         self.a2 = a2
+        self.set_forward_values()
 
-    def solve(self, xy):
+    def solve(self):
         values = np.zeros((51, 51), dtype=float)
+
         for i in range(51):
             for j in range(51):
-                x = xy[i][j][0]
-                y = xy[i][j][1]
-                self.robotic_arm.set_angle(self.a1, x)
-                self.robotic_arm.set_angle(self.a2, y)
-                values[i][j] = self.robotic_arm.get_sdf_distance()
+                pos = self.forward_values[i][j]
+                values[i][j] = self.robotic_arm.get_sdf_distance_from_pos(pos)
         return values
 
     def get_distance(self):
