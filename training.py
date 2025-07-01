@@ -17,11 +17,11 @@ from Solver.SDFSolver import SDFSolver
 
 
 def main():
-    folder = "RoboticArms/datas"
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
+    #folder = "RoboticArms/datas"
+    #for filename in os.listdir(folder):
+    #    file_path = os.path.join(folder, filename)
+    #    if os.path.isfile(file_path):
+    #        os.remove(file_path)
 
     folder = "RoboticArms/models"
     for filename in os.listdir(folder):
@@ -41,7 +41,7 @@ def main():
 
     arm = ScaraArm()
     sphere = solver.datas[0, 0, 0:3]
-    arm.add_sphere(float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
+    arm.add_sphere(float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
     sdf = SDFSolver(arm)
     sdfscreen = FastNeuralScreen(200, 300, sdf)
     sdfscreen.show_loss = False
@@ -80,7 +80,7 @@ def main():
                     datas[i, 0] = solver.datas[sphere_index, i, 3]
                     datas[i, 1] = solver.datas[sphere_index, i, 4]
                 sphere = solver.datas[sphere_index, 0, 0:3]
-                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
+                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_RIGHT]:
                 sphere_index += 1
@@ -90,7 +90,15 @@ def main():
                     datas[i, 0] = solver.datas[sphere_index, i, 3]
                     datas[i, 1] = solver.datas[sphere_index, i, 4]
                 sphere = solver.datas[sphere_index, 0, 0:3]
-                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
+                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
+                timer = 0.1
+            if pygame.key.get_pressed()[pygame.K_SPACE]:
+                sphere_index = np.random.randint(0, solver.datas.shape[0])
+                for i in range(solver.datas.shape[1]):
+                    datas[i, 0] = solver.datas[sphere_index, i, 3]
+                    datas[i, 1] = solver.datas[sphere_index, i, 4]
+                sphere = solver.datas[sphere_index, 0, 0:3]
+                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
                 timer = 0.1
 
 

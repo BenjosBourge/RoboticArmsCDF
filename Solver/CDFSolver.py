@@ -71,13 +71,13 @@ class CDFSolver:
         print("Creating dataset for", self.robotic_arm.name)
         num_features = self.robotic_arm.nb_angles + 3
         dimensions = self.robotic_arm.nb_angles
-        samples_p = 3  # Number of samples for each dimension of the workspace
+        samples_p = 100  # Number of samples for each dimension of the workspace
         max_q_per_p = 50
         precision_for_q = 200  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
         nb_samples = samples_p**3
         nb_data = nb_samples * max_q_per_p
 
-        inputs = np.full((nb_samples, max_q_per_p, num_features), np.inf, dtype=np.float32)
+        inputs = torch.full((nb_samples, max_q_per_p, num_features), float('inf'), dtype=torch.float32, device=self.device)
 
         print("Generating workspace grid...")
         p = self.generate_nd_grid(3, samples_p, 4) # 50 samples for each dimensions of the workspace
@@ -95,7 +95,9 @@ class CDFSolver:
                 joint_p.append(joint)
                 _q.append(q)
         joint_p = np.array(joint_p)
+        joint_p = torch.tensor(joint_p, dtype=torch.float32, device=self.device)
         _q = np.array(_q)
+        _q = torch.tensor(_q, dtype=torch.float32, device=self.device)
 
         print("pairs:", joint_p.shape, _q.shape)
 
@@ -103,30 +105,32 @@ class CDFSolver:
             _p = p[j]
             max_index = max_q_per_p
             index = 0
+            _p = torch.tensor(_p, dtype=torch.float32, device=self.device)
+            _p.repeat(joint_p.shape[0], 1)  # Repeat _p for each joint position
 
-            dist = np.linalg.norm(_p - joint_p, axis=1)
+            dist = torch.norm(joint_p - _p, dim=1)  # Calculate distance from each joint position to _p
+            dist = dist.to(self.device)  # Move distances to the device
+            _q_copy = _q[dist < 0.1]  # Filter _q based on distance
+            dist = dist[dist < 0.1]  # Filter distances less than 0.1
             for i in range(len(dist)):
                 if index >= max_index:
                     break
-                if dist[i] < 0.1:
-                    inputs[j, index, :3] = _p # _p ?
-                    inputs[j, index, 3:] = _q[i]
-                    index += 1
-                    for k in range(len(possible_q[0])):
-                        self.robotic_arm.set_angle(0, possible_q[0][k])  # Set the first angle
+                inputs[j, index, :3] = _p
+                inputs[j, index, 3:] = _q_copy[i]
+                index += 1
 
             print("Progress:", (j / len(p)) * 100, "%")
 
         print("Dataset created for", self.robotic_arm.name, "with", nb_data, "samples.")
         print("Inputs shape:", inputs.shape)
-        mask = ~np.all(np.isinf(inputs), axis=(1, 2))
+        mask = ~torch.isinf(inputs).all(dim=(1, 2))
         inputs = inputs[mask]
         print("Filtered inputs shape:", inputs.shape)
         torch.save(inputs, self.path_dataset)
         self.datas = torch.load(self.path_dataset, weights_only=False)
 
     def train(self):
-        num_epoch = 1
+        num_epoch = 1000
         optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001, weight_decay=1e-5)
         self.net.train()
         print("Training started for", self.robotic_arm.name)
