@@ -36,7 +36,6 @@ class SDFSolver:
 
     def solve(self):
         values = np.zeros((51, 51), dtype=float)
-
         for i in range(51):
             for j in range(51):
                 pos = self.forward_values[i][j]

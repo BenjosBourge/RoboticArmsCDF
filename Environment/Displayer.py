@@ -320,7 +320,7 @@ class Displayer:
         old_pos = middle
         for i in range(robot_arm.nb_angles):
             j_pos = joint_pos[i]
-            j_sc = (j_pos[0] * 38 + middle[0], j_pos[1] * 38 + middle[1])
+            j_sc = (j_pos[0] * 38 + middle[0], j_pos[1] * -38 + middle[1])
             radius = 3
             if i == robot_arm.nb_angles - 1:
                 radius = 4
@@ -349,6 +349,10 @@ class Displayer:
             sphere_pos = (sphere_pos[0] * 38 + middle[0], sphere_pos[1] * 38 * -1 + middle[1])
             sphere_radius = sphere_radius * 38
             pygame.draw.circle(screen, (120, 120, 120), sphere_pos, sphere_radius)
+        text = self.screen.font.render("4.0", True, (255, 255, 255))
+        screen.blit(text, (self.x + 306 + 5, self.y - 30))
+        screen.blit(text, (self.x + 306 + 290, self.y + 306 + 5))
+
 
     def draw_arm_3D(self, screen, robot_arm, color):
         middle = (self.x + 153 + 612, self.y + 153)
@@ -361,8 +365,8 @@ class Displayer:
         for i in range(robot_arm.nb_angles):
             j_pos = joint_pos[i]
             j_offset_z = 0
-            j_pos_x = j_pos[0] * 50 * 0.5 - j_pos[1] * 50 * 0.5
-            j_pos_y = j_pos[0] * 50 * 0.25 + j_pos[1] * 50 * 0.25
+            j_pos_x = j_pos[0] * 50 * 0.5 + j_pos[1] * 50 * 0.5
+            j_pos_y = j_pos[0] * 50 * 0.25 - j_pos[1] * 50 * 0.25
             j_sc = (j_pos_x + middle[0], j_pos_y + middle[1] - j_offset_z)
             radius = 3
             if i == robot_arm.nb_angles - 1:
@@ -376,8 +380,8 @@ class Displayer:
         for i in range(robot_arm.nb_angles):
             j_pos = joint_pos[i]
             j_offset_z = j_pos[2] * 38 * 0.5
-            j_pos_x = j_pos[0] * 50 * 0.5 - j_pos[1] * 50 * 0.5
-            j_pos_y = j_pos[0] * 50 * 0.25 + j_pos[1] * 50 * 0.25
+            j_pos_x = j_pos[0] * 50 * 0.5 + j_pos[1] * 50 * 0.5
+            j_pos_y = j_pos[0] * 50 * 0.25 - j_pos[1] * 50 * 0.25
             j_sc = (j_pos_x + middle[0], j_pos_y + middle[1] - j_offset_z)
             radius = 3
             if i == robot_arm.nb_angles - 1:

@@ -105,7 +105,7 @@ class RoboticArm:
         pos_mat = np.eye(4)
 
         for i in range(self.nb_angles):
-            a_i = self.a[i] * -1
+            a_i = self.a[i]
             mat = np.eye(4)
             if self.m[i] == RotationMode.X:
                 mat = self.rot_x(a_i)
@@ -135,7 +135,6 @@ class RoboticArm:
         value = 10.
         for i in range(len(joints)):
             x, y, z = joints[i]
-            y *= -1
 
             for sphere in self.spheres:
                 sphere_pos = sphere[0]
@@ -153,7 +152,6 @@ class RoboticArm:
         value = 10.
         for i in range(len(joints)):
             x, y, z = joints[i]
-            y *= -1
 
             for sphere in self.spheres:
                 sphere_pos = sphere[0]

@@ -151,7 +151,7 @@ class FastNeuralScreen:
             if datas[i][0] == float('inf') or datas[i][1] == float('inf'):
                 continue
             x = datas[i][0]
-            y = datas[i][1]
+            y = -datas[i][1]
 
             color = (0, 255, 0)
 

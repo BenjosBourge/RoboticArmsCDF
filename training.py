@@ -17,11 +17,11 @@ from Solver.SDFSolver import SDFSolver
 
 
 def main():
-    #folder = "RoboticArms/datas"
-    #for filename in os.listdir(folder):
-    #    file_path = os.path.join(folder, filename)
-    #    if os.path.isfile(file_path):
-    #        os.remove(file_path)
+    folder = "RoboticArms/datas"
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
     folder = "RoboticArms/models"
     for filename in os.listdir(folder):
@@ -60,6 +60,7 @@ def main():
         datas[i, 1] = solver.datas[0, i, 4]
 
     running = True
+    timer = 0.0
     while running:
         screen.fill((0, 0, 0))  # Background color
 
@@ -70,24 +71,27 @@ def main():
             if event.type == pygame.MOUSEWHEEL:
                 scroll += event.y
 
-        if pygame.key.get_pressed()[pygame.K_LEFT]:
-            sphere_index -= 1
-            if sphere_index < 0:
-                sphere_index = solver.datas.shape[0] - 1
-            for i in range(solver.datas.shape[1]):
-                datas[i, 0] = solver.datas[sphere_index, i, 3]
-                datas[i, 1] = solver.datas[sphere_index, i, 4]
-            sphere = solver.datas[sphere_index, 0, 0:3]
-            arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
-        if pygame.key.get_pressed()[pygame.K_RIGHT]:
-            sphere_index += 1
-            if sphere_index >= solver.datas.shape[0]:
-                sphere_index = 0
-            for i in range(solver.datas.shape[1]):
-                datas[i, 0] = solver.datas[sphere_index, i, 3]
-                datas[i, 1] = solver.datas[sphere_index, i, 4]
-            sphere = solver.datas[sphere_index, 0, 0:3]
-            arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
+        if timer <= 0:
+            if pygame.key.get_pressed()[pygame.K_LEFT]:
+                sphere_index -= 1
+                if sphere_index < 0:
+                    sphere_index = solver.datas.shape[0] - 1
+                for i in range(solver.datas.shape[1]):
+                    datas[i, 0] = solver.datas[sphere_index, i, 3]
+                    datas[i, 1] = solver.datas[sphere_index, i, 4]
+                sphere = solver.datas[sphere_index, 0, 0:3]
+                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
+                timer = 0.1
+            if pygame.key.get_pressed()[pygame.K_RIGHT]:
+                sphere_index += 1
+                if sphere_index >= solver.datas.shape[0]:
+                    sphere_index = 0
+                for i in range(solver.datas.shape[1]):
+                    datas[i, 0] = solver.datas[sphere_index, i, 3]
+                    datas[i, 1] = solver.datas[sphere_index, i, 4]
+                sphere = solver.datas[sphere_index, 0, 0:3]
+                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.5)
+                timer = 0.1
 
 
         sdfscreen.update(clock.get_time() / 1000.0, scroll)
@@ -105,6 +109,8 @@ def main():
 
         pygame.display.flip()
         deltatime = clock.tick(60) / 1000.0  # Convert milliseconds to seconds
+        if timer > 0:
+            timer -= deltatime
 
 if __name__ == "__main__":
     main()
