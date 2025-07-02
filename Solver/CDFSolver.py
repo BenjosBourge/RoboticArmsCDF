@@ -182,18 +182,18 @@ class CDFSolver:
         groundtrue = torch.norm(inputs[:, :2] - new_inputs[:, :2], dim=-1, keepdim=True)
         groundtrue.to(self.device)
 
+        N = 6250000
+        k = 10000
+        num_batches = N // k
+        all_indices = torch.randperm(N, device=inputs.device)
+        batches = all_indices[:num_batches * k].reshape(num_batches, k)
+        index = 0
         for epoch in range(num_epoch):
             # Forward pass
-            N = 6250000  # total number of elements
-            k = 40000  # how many random indices you want
-
-            indices = torch.randperm(N)[:k]
-            batch_inputs = inputs[indices]  # shape (k, 5)
-            batch_groundtrue = groundtrue[indices]  # shape (k, 1)
+            batch_inputs = inputs[batches[index]]  # shape (k, 5)
+            batch_groundtrue = groundtrue[batches[index]]  # shape (k, 1)
             outputs = self.net(batch_inputs)
             loss = batch_groundtrue - outputs  # shape (N * b, 1)
-            min_diff = torch.min(loss)  # shape (N * b, 1)
-            max_diff = torch.max(loss)  # shape (N * b, 1)
             loss = torch.pow(loss, 2)
             loss = loss.mean()
 
@@ -206,6 +206,9 @@ class CDFSolver:
             loss.backward()
             optimizer.step()
             print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}, Min Loss: {min_loss:.4f}")
+            index += 1
+            if index >= num_batches:
+                index = 0
             # print("Min diff:", min_diff.item(), "Max diff:", max_diff.item())
 
         print("Training completed for", self.robotic_arm.name)
