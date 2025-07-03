@@ -19,10 +19,11 @@ class CDFSolver:
         self.a2 = 1
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Using device:", self.device)
-        self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
+        self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128, 128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
         self.datas = None
         self.batch_size = 4000
         self.type = "CDFSolver"
+        self.possible_joint_positions = None
 
         if robotic_arm is None:
             self.path = 'RoboticArms/models/' + 'None' + '.pth'
@@ -72,17 +73,16 @@ class CDFSolver:
         num_features = self.robotic_arm.nb_angles + 3
         dimensions = self.robotic_arm.nb_angles
         samples_p = 100  # Number of samples for each dimension of the workspace
-        max_q_per_p = 50
-        precision_for_q = 200  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
+        max_q_per_p = 100
+        precision_for_q = 100  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
         nb_samples = samples_p**3
-        nb_data = nb_samples * max_q_per_p
 
         inputs = torch.full((nb_samples, max_q_per_p, num_features), float('inf'), dtype=torch.float32, device=self.device)
 
         print("Generating workspace grid...")
         p = self.generate_nd_grid(3, samples_p, 4) # 50 samples for each dimensions of the workspace
         print("Generating angles grid...")
-        possible_q = self.generate_nd_grid(dimensions, precision_for_q) # 50 samples for each angle
+        possible_q = self.generate_nd_grid(dimensions, precision_for_q) # 100 samples for each angle
         joint_p = []
         _q = []
 
@@ -99,14 +99,19 @@ class CDFSolver:
         _q = np.array(_q)
         _q = torch.tensor(_q, dtype=torch.float32, device=self.device)
 
+        # debug
+        self.possible_joint_positions = joint_p
+
         print("pairs:", joint_p.shape, _q.shape)
+        perm = torch.randperm(joint_p.size(0))
+        joint_p = joint_p[perm]
+        _q = _q[perm]
 
         for j in range(len(p)):
             _p = p[j]
             max_index = max_q_per_p
             index = 0
             _p = torch.tensor(_p, dtype=torch.float32, device=self.device)
-            _p.repeat(joint_p.shape[0], 1)  # Repeat _p for each joint position
 
             dist = torch.norm(joint_p - _p, dim=1)  # Calculate distance from each joint position to _p
             dist = dist.to(self.device)  # Move distances to the device
@@ -115,17 +120,21 @@ class CDFSolver:
             for i in range(len(dist)):
                 if index >= max_index:
                     break
-                inputs[j, index, :3] = _p
-                inputs[j, index, 3:] = _q_copy[i]
+                inputs[j, index, :dimensions] = _q_copy[i]
+                inputs[j, index, dimensions:] = _p
                 index += 1
 
             print("Progress:", (j / len(p)) * 100, "%")
 
-        print("Dataset created for", self.robotic_arm.name, "with", nb_data, "samples.")
+        # datas are stored as (q1, q2, ..., p1, p2, p3)
+
+        print("Dataset created for", self.robotic_arm.name, "with", nb_samples, "samples.")
         print("Inputs shape:", inputs.shape)
         mask = ~torch.isinf(inputs).all(dim=(1, 2))
         inputs = inputs[mask]
         print("Filtered inputs shape:", inputs.shape)
+        if inputs.shape[0] == 0:
+            inputs = torch.zeros((1, max_q_per_p, num_features), dtype=torch.float32, device=self.device)
         torch.save(inputs, self.path_dataset)
         self.datas = torch.load(self.path_dataset, weights_only=False)
 
@@ -134,6 +143,9 @@ class CDFSolver:
         optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001, weight_decay=1e-5)
         self.net.train()
         print("Training started for", self.robotic_arm.name)
+        if self.datas.shape[0] == 0:
+            print("No data available for training. Please create the dataset first.")
+            return
 
         loss = None
         min_loss = float('inf')
@@ -151,11 +163,6 @@ class CDFSolver:
         y = torch.linspace(-4, 4, 50)
         p_grid = torch.cartesian_prod(x, y)  # shape (2500, 2)
         p_grid = p_grid.to(self.device)
-
-        q_repeat = q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, 2500, 2)
-        p_repeat = p_grid.unsqueeze(0).repeat(q_grid.size(0), 1, 1)  # (2500, 2500, 2)
-        combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, 2500, 4)
-        inputs = combined.view(-1, 4)# (6250000, 4)
         # --- end of input q1, q2, p1, p2, p3 ---
 
         # --- new_inputs q1, q2 from the p1, p2, p3 ---
@@ -163,52 +170,74 @@ class CDFSolver:
         equivalence = torch.zeros((2500, n), dtype=torch.float32, device=self.device)  # shape (2500, n)
 
         # use the data to find the closest p, and from the closest p the closest q'
-        print("Data shape:" , self.datas.shape)
-        for i in range(2500):
-            pass
+        print("Data shape:" , self.datas.shape) # (data_len, 50, 5) 5: # q1, q2, p1, p2, p3
+        # closest p
+        zeros = torch.zeros(p_grid.shape[0], 1, device=self.device, dtype=torch.float32)
+        n_p = torch.cat([p_grid, zeros], dim=1)
+        n_p = n_p.unsqueeze(1).expand(-1, self.datas.shape[0], -1)  # Shape: (2500, data_len, 2)
+        min_dist = torch.zeros((n_p.shape[0], 1), dtype=torch.float32, device=self.device)
+        for i in range(n_p.shape[0]):
+            dist = torch.norm(n_p[i] - self.datas[:, 0, 2:5], dim=1)  # (data_len, 1)
+            closest_index = torch.argmin(dist)
+
+            equivalence[i, :] = self.datas[closest_index, 0, :n]  # Store the corresponding q1, q2 from the closest p
+            min_dist[i, 0] = dist[closest_index]  # Store the minimum distance for each p
+
+        mask = min_dist.squeeze() < 0.1
+        close_equivalence = equivalence[mask]  # Filter equivalence based on distance threshold
+        print("close_equivalence shape:", close_equivalence.shape)  # (2500, 2)
+        new_len = close_equivalence.shape[0]
 
         # mimic the position of the p points in the inputs
-        equivalence_repeat = equivalence.unsqueeze(0).repeat(equivalence.size(0), 1, 1)  # (2500, 2500, 2)
-        new_inputs = equivalence_repeat.view(-1, n)  # (6250000, 2)
+        equivalence_repeat = close_equivalence.unsqueeze(0).repeat(equivalence.size(0), 1, 1)  # (new_len, new_len, 2)
+        print("equivalence_repeat shape:", equivalence_repeat.shape)  # (2500, 2500, 2)
+        new_inputs = equivalence_repeat.view(-1, n)  # (new_len*2500, 2)
         # --- end of new_inputs q1, q2 from the p1, p2, p3 ---
 
+        # --- only keep close equivalence ---
+        p_grid = p_grid[mask]  # Filter p_grid based on the mask
+        q_repeat = q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, new_len, 2)
+        p_repeat = p_grid.unsqueeze(0).repeat(q_grid.size(0), 1, 1)  # (2500, new_len, 2)
+        combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, new_len, 4)
+        inputs = combined.view(-1, 4)  # (new_len*2500, 4)
+        zeros = torch.zeros((2500*new_len, 1), dtype=inputs.dtype, device=self.device)
+        inputs = torch.cat((inputs, zeros), dim=1)
+        inputs = inputs.to(self.device)
+        # --- end of only keep close equivalence ---
 
-        col = torch.zeros((6250000, 1), dtype=torch.float32, device=self.device) # shape (6250000, 1)
-        inputs = torch.cat([inputs, col], dim=-1)  # shape (6250000, 5)
-        inputs = inputs.to(self.device)  # Move inputs to the device
+        print("Percentage remaining:", (mask.sum().item() / min_dist.shape[0]) * 100, "%")
+        print("Mean distance:", torch.mean(min_dist[mask]).item())
 
         # inputs -> q1, q2, p1, p2, p3
         # new_inputs -> q1, q2 from the p1, p2, p3
         groundtrue = torch.norm(inputs[:, :2] - new_inputs[:, :2], dim=-1, keepdim=True)
         groundtrue.to(self.device)
 
-        N = 6250000
-        k = 10000
+        N = 2500*new_len
+        k = 50000
         num_batches = N // k
         all_indices = torch.randperm(N, device=inputs.device)
         batches = all_indices[:num_batches * k].reshape(num_batches, k)
         index = 0
         for epoch in range(num_epoch):
-            # Forward pass
-            batch_inputs = inputs[batches[index]]  # shape (k, 5)
-            batch_groundtrue = groundtrue[batches[index]]  # shape (k, 1)
-            outputs = self.net(batch_inputs)
-            loss = batch_groundtrue - outputs  # shape (N * b, 1)
-            loss = torch.pow(loss, 2)
-            loss = loss.mean()
+            for i in range(num_batches):
+                # Forward pass
+                batch_inputs = inputs[batches[index]]  # shape (k, 5)
+                batch_groundtrue = groundtrue[batches[index]]  # shape (k, 1)
+                outputs = self.net(batch_inputs)
+                loss = batch_groundtrue - outputs  # shape (N * b, 1)
+                loss = torch.pow(loss, 2)
+                loss = loss.mean()
 
-            if loss < min_loss:
-                min_loss = loss.item()
-                best_model = self.net.state_dict()
+                if loss < min_loss:
+                    min_loss = loss.item()
+                    best_model = self.net.state_dict()
 
-            # Backward and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                # Backward and optimize
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
             print(f"Epoch [{epoch + 1}/{num_epoch}], Loss: {loss.item():.4f}, Min Loss: {min_loss:.4f}")
-            index += 1
-            if index >= num_batches:
-                index = 0
             # print("Min diff:", min_diff.item(), "Max diff:", max_diff.item())
 
         print("Training completed for", self.robotic_arm.name)
