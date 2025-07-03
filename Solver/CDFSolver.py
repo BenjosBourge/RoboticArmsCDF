@@ -139,7 +139,7 @@ class CDFSolver:
         self.datas = torch.load(self.path_dataset, weights_only=False)
 
     def train(self):
-        num_epoch = 1000
+        num_epoch = 300
         optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001, weight_decay=1e-5)
         self.net.train()
         print("Training started for", self.robotic_arm.name)
@@ -167,7 +167,7 @@ class CDFSolver:
 
         # --- new_inputs q1, q2 from the p1, p2, p3 ---
         n = 2
-        equivalence = torch.zeros((2500, n), dtype=torch.float32, device=self.device)  # shape (2500, n)
+        equivalence = torch.zeros((2500, self.datas.shape[1], n), dtype=torch.float32, device=self.device)  # shape (2500, n)
 
         # use the data to find the closest p, and from the closest p the closest q'
         print("Data shape:" , self.datas.shape) # (data_len, 50, 5) 5: # q1, q2, p1, p2, p3
@@ -180,21 +180,16 @@ class CDFSolver:
             dist = torch.norm(n_p[i] - self.datas[:, 0, 2:5], dim=1)  # (data_len, 1)
             closest_index = torch.argmin(dist)
 
-            equivalence[i, :] = self.datas[closest_index, 0, :n]  # Store the corresponding q1, q2 from the closest p
+            equivalence[i, :, :] = self.datas[closest_index, :, :n]  # Store the corresponding q1, q2 from the closest p
             min_dist[i, 0] = dist[closest_index]  # Store the minimum distance for each p
 
         mask = min_dist.squeeze() < 0.1
         close_equivalence = equivalence[mask]  # Filter equivalence based on distance threshold
-        print("close_equivalence shape:", close_equivalence.shape)  # (2500, 2)
+        print("close_equivalence shape:", close_equivalence.shape)  # (new_len, 100, 2)
         new_len = close_equivalence.shape[0]
-
-        # mimic the position of the p points in the inputs
-        equivalence_repeat = close_equivalence.unsqueeze(0).repeat(equivalence.size(0), 1, 1)  # (new_len, new_len, 2)
-        print("equivalence_repeat shape:", equivalence_repeat.shape)  # (2500, 2500, 2)
-        new_inputs = equivalence_repeat.view(-1, n)  # (new_len*2500, 2)
         # --- end of new_inputs q1, q2 from the p1, p2, p3 ---
 
-        # --- only keep close equivalence ---
+        # --- only keep close equivalence inputs ---
         p_grid = p_grid[mask]  # Filter p_grid based on the mask
         q_repeat = q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, new_len, 2)
         p_repeat = p_grid.unsqueeze(0).repeat(q_grid.size(0), 1, 1)  # (2500, new_len, 2)
@@ -203,15 +198,28 @@ class CDFSolver:
         zeros = torch.zeros((2500*new_len, 1), dtype=inputs.dtype, device=self.device)
         inputs = torch.cat((inputs, zeros), dim=1)
         inputs = inputs.to(self.device)
-        # --- end of only keep close equivalence ---
+        # --- end of only keep close equivalence inputs ---
 
         print("Percentage remaining:", (mask.sum().item() / min_dist.shape[0]) * 100, "%")
         print("Mean distance:", torch.mean(min_dist[mask]).item())
 
         # inputs -> q1, q2, p1, p2, p3
         # new_inputs -> q1, q2 from the p1, p2, p3
+
+        # --- take the closest p' ---
+        # q_repeat (2500, new_len, 2) and close_equivalence (new_len, 100, 2)
+        q_expanded = q_repeat.unsqueeze(2)  # (2500, new_len, 1, 2)
+        close_expanded = close_equivalence.unsqueeze(0)  # (1, new_len, 100, 2)
+        dists = torch.norm(q_expanded - close_expanded, dim=-1) # (2500, new_len, 100)
+        min_indices = torch.argmin(dists, dim=2)  # shape: (2500, new_len)
+        row_idx = torch.arange(new_len, device=q_repeat.device).view(1, -1).expand(2500, -1)  # shape: (2500, new_len)
+        closest_q = close_equivalence[row_idx, min_indices] # (2500, new_len, 2)
+        print("equivalence_repeat shape:", closest_q.shape)  # (2500, new_len, 2)
+        new_inputs = closest_q.view(-1, n)  # (new_len*2500, 2)
+
         groundtrue = torch.norm(inputs[:, :2] - new_inputs[:, :2], dim=-1, keepdim=True)
         groundtrue.to(self.device)
+        # --- end of take the closest p' ---
 
         N = 2500*new_len
         k = 50000
@@ -255,22 +263,41 @@ class CDFSolver:
 
 
     def solve(self):
+        nb_sphere = len(self.robotic_arm.spheres)
+
         x = torch.linspace(-math.pi, math.pi, 51)
         y = torch.linspace(math.pi, -math.pi, 51)
         grid = torch.cartesian_prod(x, y)  # shape (2601, 2)
         inputs = torch.zeros((grid.shape[0], 5), dtype=torch.float32, device=self.device)
         inputs[:, 0] = grid[:, 1]
         inputs[:, 1] = grid[:, 0]
-        inputs[:, 2] = self.robotic_arm.spheres[0][0][0]  # x position of the first sphere
-        inputs[:, 3] = self.robotic_arm.spheres[0][0][1]
-        inputs[:, 4] = self.robotic_arm.spheres[0][0][2]
+        inputs = inputs.unsqueeze(0)
+        inputs = inputs.repeat(nb_sphere, 1, 1)  # shape (nb_sphere, 2601, 5)
+        for i in range(nb_sphere):
+            inputs[i, :, 2] = self.robotic_arm.spheres[i][0][0]
+            inputs[i, :, 3] = -self.robotic_arm.spheres[i][0][1]
+            inputs[i, :, 4] = self.robotic_arm.spheres[i][0][2]
+        inputs = inputs.view(-1, 5)  # shape (nb_sphere * 2601, 5)
         outputs = self.net(inputs)
+        outputs = outputs.view(nb_sphere, 51, 51)  # shape (nb_sphere, 51, 51)
+        outputs = torch.min(outputs, dim=0).values  # Get the minimum distance across all spheres
         outputs = outputs.cpu().detach().numpy()
         outputs = outputs.reshape((51, 51))
         return outputs
 
     def get_distance(self):
-        return self.robotic_arm.get_sdf_distance()
+        input = torch.zeros((len(self.robotic_arm.spheres), self.robotic_arm.nb_angles + 3), dtype=torch.float32, device=self.device)
+        for i in range(self.robotic_arm.nb_angles):
+            input[0, i] = self.robotic_arm.get_angle(i)
+        for i in range(len(self.robotic_arm.spheres)):
+            input[i, self.robotic_arm.nb_angles] = self.robotic_arm.spheres[i][0][0]
+            input[i, self.robotic_arm.nb_angles + 1] = self.robotic_arm.spheres[i][0][1]
+            input[i, self.robotic_arm.nb_angles + 2] = self.robotic_arm.spheres[i][0][2]
+        self.net.eval()
+        output = self.net(input)
+        output = torch.min(output, dim=0).values  # Get the minimum distance across all spheres
+        return output.item()
+
 
     def copy(self):
         robotic_arm = self.robotic_arm.copy()

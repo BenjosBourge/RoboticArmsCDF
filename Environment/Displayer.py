@@ -73,6 +73,7 @@ class Displayer:
         self.sdf_solver = SDFSolver.SDFSolver(self.robot_arm)
         self.cdf_solver = CDFSolver.CDFSolver(self.robot_arm)
         self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.sdf_solver)
+        self.my_solver = self.sdf_solver
 
         self.screen.range = np.pi
         self.screen.setSDFMode(True)
@@ -196,8 +197,10 @@ class Displayer:
             self.add_sphere(0, 0, 0.0, 0.5)
         if self.buttons[6].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.screen.changeSolver(self.sdf_solver)
+            self.my_solver = self.sdf_solver
         if self.buttons[7].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.screen.changeSolver(self.cdf_solver)
+            self.my_solver = self.cdf_solver
 
         if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Scara")
@@ -457,13 +460,13 @@ class Displayer:
 
     # Solving problems
     def gradient(self, delta_time):
-        value = self.sdf_solver.get_distance()
+        value = self.my_solver.get_distance()
         g = []
         print(self.robot_arm.nb_angles)
         for i in range(self.robot_arm.nb_angles):
             v = self.robot_arm.get_angle(i)
             self.robot_arm.set_angle(i, v + 0.01)
-            g.append(self.sdf_solver.get_distance() - value)
+            g.append(self.my_solver.get_distance() - value)
             self.robot_arm.set_angle(i, v)
         vector = np.array(g)
         length = np.linalg.norm(vector)
@@ -474,12 +477,12 @@ class Displayer:
 
 
     def geodesic(self, delta_time):
-        value = self.sdf_solver.get_distance()
+        value = self.my_solver.get_distance()
         g = []
         for i in range(self.robot_arm.nb_angles):
             v = self.robot_arm.get_angle(i)
             self.robot_arm.set_angle(i, v + 0.01)
-            g.append(self.sdf_solver.get_distance() - value)
+            g.append(self.my_solver.get_distance() - value)
             self.robot_arm.set_angle(i, v)
         vector = np.array(g)
         length = np.linalg.norm(vector)
