@@ -18,11 +18,11 @@ from Solver.SDFSolver import SDFSolver
 
 
 def main():
-    #folder = "RoboticArms/datas"
-    #for filename in os.listdir(folder):
-    #    file_path = os.path.join(folder, filename)
-    #    if os.path.isfile(file_path):
-    #        os.remove(file_path)
+    folder = "RoboticArms/datas"
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
     folder = "RoboticArms/models"
     for filename in os.listdir(folder):
@@ -30,7 +30,8 @@ def main():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-    solver = CDFSolver(ScaraArm())
+    arm = Scara3Arm()
+    solver = CDFSolver(arm)
     # CDFSolver(Scara3Arm())
     # CDFSolver(Scara7Arm())
     # CDFSolver(Spherical())
@@ -40,8 +41,9 @@ def main():
     pygame.display.set_caption("Grid of Squares")
     clock = pygame.time.Clock()
 
-    arm = ScaraArm()
-    sphere = solver.datas[0, 0, 2:5]
+    n = arm.nb_angles
+
+    sphere = solver.datas[0, 0, n:n+3]
     arm.add_sphere(float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
     sdf = SDFSolver(arm)
     sdfscreen = FastNeuralScreen(100, 300, sdf)
@@ -61,7 +63,7 @@ def main():
         datas[i, 1] = solver.datas[0, i, 1]
 
     # sphere positions
-    data = solver.datas[:, 0, 2:4] # shape (N, 2)
+    data = solver.datas[:, 0, n:n+2] # shape (N, 2)
     positions = (data + 4) / 8 * 306
     positions += torch.tensor([800, 300]).to(solver.device)
     positions_int = positions.int().tolist()
@@ -70,11 +72,14 @@ def main():
     if solver.possible_joint_positions is None:
         possible_joint_positions = [0, 0]
     else:
-        data = solver.possible_joint_positions[:, 0:2]
+        data = solver.possible_joint_positions[:, :2]
         positions = (data + 4) / 8 * 306
         positions += torch.tensor([800, 300]).to(solver.device)
         possible_joint_positions = positions.int().tolist()
 
+    for i in range(arm.nb_angles):
+        arm.set_angle(i, 0)
+    sdfscreen.solver.set_forward_values()
 
     running = True
     timer = 0.0
@@ -96,7 +101,7 @@ def main():
                 for i in range(solver.datas.shape[1]):
                     datas[i, 0] = solver.datas[sphere_index, i, 0]
                     datas[i, 1] = solver.datas[sphere_index, i, 1]
-                sphere = solver.datas[sphere_index, 0, 2:5]
+                sphere = solver.datas[sphere_index, 0, n:n+3]
                 arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_RIGHT]:
@@ -106,7 +111,7 @@ def main():
                 for i in range(solver.datas.shape[1]):
                     datas[i, 0] = solver.datas[sphere_index, i, 0]
                     datas[i, 1] = solver.datas[sphere_index, i, 1]
-                sphere = solver.datas[sphere_index, 0, 2:5]
+                sphere = solver.datas[sphere_index, 0, n:n+3]
                 arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_SPACE]:
@@ -114,7 +119,7 @@ def main():
                 for i in range(solver.datas.shape[1]):
                     datas[i, 0] = solver.datas[sphere_index, i, 0]
                     datas[i, 1] = solver.datas[sphere_index, i, 1]
-                sphere = solver.datas[sphere_index, 0, 2:5]
+                sphere = solver.datas[sphere_index, 0, n:n+3]
                 arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_p]:

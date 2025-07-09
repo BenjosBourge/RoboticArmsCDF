@@ -46,7 +46,16 @@ def worker():
         if solver.type != global_solver.type:
             solver = global_solver.copy()
 
+        angle_changed = False
+        for i in range(len(solver.robotic_arm.a)):
+            if i == solver.a1 or i == solver.a2:
+                continue
+            if solver.robotic_arm.a[i] != global_solver.robotic_arm.a[i]:
+                angle_changed = True
+                break
         solver.robotic_arm = global_solver.robotic_arm.copy()
+        if angle_changed:
+            solver.set_forward_values()
 
         # Simulate calculationp
         n = calculate_grid(solver)

@@ -107,7 +107,7 @@ class Displayer:
         self.add_button(160, self.y + 464, 100, 50, "CDF", -1)
 
         self.add_button(50, self.y + 400, 130, 50, "Scara", -1)
-        self.add_button(200, self.y + 400, 130, 50, "Scara3D", -1)
+        self.add_button(200, self.y + 400, 130, 50, "Scara3", -1)
         self.add_button(350, self.y + 400, 130, 50, "Spherical", -1)
         self.add_button(500, self.y + 400, 130, 50, "TiagoPal", -1)
 
@@ -143,10 +143,12 @@ class Displayer:
 
 
     def change_arm(self, arm_type):
+        self.screen.changeSolver(self.sdf_solver)
+        self.my_solver = self.sdf_solver
         if arm_type == "Scara":
             self.robot_arm = Scara.ScaraArm()
             self.desired_robot_arm = Scara.ScaraArm()
-        elif arm_type == "Scara3D":
+        elif arm_type == "Scara3":
             self.robot_arm = Scara3.Scara3Arm()
             self.desired_robot_arm = Scara3.Scara3Arm()
         elif arm_type == "Spherical":
@@ -160,8 +162,8 @@ class Displayer:
 
         for sphere in self.spheres:
             self.robot_arm.add_sphere(sphere[0][0], sphere[0][1], sphere[0][2], sphere[1])
-        self.sdf_solver.robotic_arm = self.robot_arm
-        self.cdf_solver.robotic_arm = self.robot_arm
+        self.sdf_solver.change_robotic_arm(self.robot_arm)
+        self.cdf_solver.change_robotic_arm(self.robot_arm)
         self.display_angle_1 = 0
         self.display_angle_2 = 1
         self.sliders.clear()
@@ -205,7 +207,7 @@ class Displayer:
         if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Scara")
         if self.buttons[9].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.change_arm("Scara3D")
+            self.change_arm("Scara3")
         if self.buttons[10].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Spherical")
         if self.buttons[11].is_hovered() and pygame.mouse.get_pressed()[0]:
