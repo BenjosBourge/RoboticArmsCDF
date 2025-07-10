@@ -45,6 +45,8 @@ def worker():
             solver = global_solver.copy()
         if solver.type != global_solver.type:
             solver = global_solver.copy()
+        if solver.a1 != global_solver.a1 or solver.a2 != global_solver.a2:
+            solver.set_angles(global_solver.a1, global_solver.a2)
 
         angle_changed = False
         for i in range(len(solver.robotic_arm.a)):

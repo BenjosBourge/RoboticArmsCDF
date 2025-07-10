@@ -19,7 +19,7 @@ class CDFSolver:
         self.a2 = 1
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Using device:", self.device)
-        self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[128, 128, 128, 128], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
+        self.net = MLPRegression(input_dims=self.robotic_arm.nb_angles + 3, output_dims=1, mlp_layers=[256, 256, 256, 256], act_fn=torch.nn.ReLU, nerf=True).to(self.device)
         self.datas = None
         self.batch_size = 4000
         self.type = "CDFSolver"
@@ -76,15 +76,18 @@ class CDFSolver:
         print("Creating dataset for", self.robotic_arm.name)
         num_features = self.robotic_arm.nb_angles + 3
         dimensions = self.robotic_arm.nb_angles
-        samples_p = 100  # Number of samples for each dimension of the workspace
+        samples_p = 99  # Number of samples for each dimension of the workspace
         max_q_per_p = 100
         precision_for_q = 50  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
-        nb_samples = samples_p**3
+        nb_samples = samples_p**2
 
         inputs = torch.full((nb_samples, max_q_per_p, num_features), float('inf'), dtype=torch.float32, device=self.device)
 
         print("Generating workspace grid...")
-        p = self.generate_nd_grid(3, samples_p, 4) # 50 samples for each dimensions of the workspace
+        p = self.generate_nd_grid(2, samples_p, 4) # 50 samples for each dimensions of the workspace
+        z = np.zeros((p.shape[0], 1))  # Add a zero z coordinate
+        p = np.hstack((p, z))
+        print("p shape:", p.shape)
         print("Generating angles grid...")
         possible_q = self.generate_nd_grid(dimensions, precision_for_q) # 100 samples for each angle
         joint_p = []
@@ -142,11 +145,8 @@ class CDFSolver:
         torch.save(inputs, self.path_dataset)
         self.datas = torch.load(self.path_dataset, weights_only=False)
 
-        for i in range(len(self.datas)):
-            print("Dataset sample", i, ":", self.datas[i, 0, :self.robotic_arm.nb_angles], "->", self.datas[i, 0, self.robotic_arm.nb_angles:])
-
     def train(self):
-        num_epoch = 500
+        num_epoch = 2000
         optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001, weight_decay=1e-5)
         self.net.train()
         print("Training started for", self.robotic_arm.name)
@@ -170,8 +170,9 @@ class CDFSolver:
         p_grid[:, 0:3] = self.datas[:, 0, n:]
         # --- end of input q1, q2, p1, p2, p3 ---
 
-        q_repeat = q_grid.unsqueeze(1).repeat(1, p_grid.size(0), 1)  # (2500, new_len, 2)
-        p_repeat = p_grid.unsqueeze(0).repeat(q_grid.size(0), 1, 1)  # (2500, new_len, 3)
+        q_repeat = q_grid.unsqueeze(1).expand(-1, p_grid.size(0), -1)  # (2500, new_len, 2)
+        q_repeat = q_repeat[torch.randint(0, q_repeat.size(0), (100,))]
+        p_repeat = p_grid.unsqueeze(0).expand(q_repeat.size(0), -1, -1)  # (2500, new_len, 3)
         combined = torch.cat((q_repeat, p_repeat), dim=-1)  # (2500, new_len, 5)
         inputs = combined.view(-1, n + 3)  # (new_len*2500, 4)
         inputs = inputs.to(self.device)
@@ -179,13 +180,13 @@ class CDFSolver:
         # --- take the closest p' ---
         # q_repeat (50**n, new_len, 2) and close_equivalence (data_len, 100, 2)
         close_equivalence = self.datas[:, :, :n]  # shape (data_len, 100, 2)
-        q_expanded = q_repeat.unsqueeze(2)  # (50**n, data_len, 1, 2)
+        q_expanded = q_repeat.unsqueeze(2)  # (50, data_len, 1, 2)
         close_expanded = close_equivalence.unsqueeze(0)  # (1, data_len, 100, 2)
-        dists = torch.norm(q_expanded - close_expanded, dim=-1) # (50**n, new_len, 100)
-        min_indices = torch.argmin(dists, dim=2)  # shape: (50**n, new_len)
+        dists = torch.norm(q_expanded - close_expanded, dim=-1) # (50, new_len, 100)
+        min_indices = torch.argmin(dists, dim=2)  # shape: (50, new_len)
         row_idx = torch.arange(len(self.datas), device=q_repeat.device).view(1, -1).expand(q_expanded.shape[0], -1)  # shape: (50**n, new_len)
-        closest_q = close_equivalence[row_idx, min_indices] # (50**n, new_len, 2)
-        new_inputs = closest_q.view(-1, n)  # (new_len*50**n, 2)
+        closest_q = close_equivalence[row_idx, min_indices] # (50, new_len, 2)
+        new_inputs = closest_q.view(-1, n)  # (new_len*50, 2)
 
         groundtrue = torch.norm(inputs[:, :n] - new_inputs[:, :n], dim=-1, keepdim=True)
         groundtrue.to(self.device)
@@ -236,6 +237,8 @@ class CDFSolver:
 
     def solve(self):
         nb_sphere = len(self.robotic_arm.spheres)
+        if nb_sphere == 0:
+            return np.zeros((51, 51), dtype=float)
 
         x = torch.linspace(-math.pi, math.pi, 51)
         y = torch.linspace(math.pi, -math.pi, 51)
@@ -260,6 +263,8 @@ class CDFSolver:
         return outputs
 
     def get_distance(self):
+        if len(self.robotic_arm.spheres) == 0:
+            return 10.0
         input = torch.zeros((len(self.robotic_arm.spheres), self.robotic_arm.nb_angles + 3), dtype=torch.float32, device=self.device)
         for i in range(self.robotic_arm.nb_angles):
             input[0, i] = self.robotic_arm.get_angle(i)
@@ -282,3 +287,6 @@ class CDFSolver:
     def set_forward_values(self):
         # This method is not used in CDFSolver, but kept for compatibility
         pass
+
+    def getLoss(self):
+        return self.get_distance()

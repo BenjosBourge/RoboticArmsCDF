@@ -23,6 +23,8 @@ class NSDFSolver:
 
     def set_forward_values(self):
         self.forward_values = np.zeros((51, 51, self.robotic_arm.nb_angles, 3), dtype=float)
+        old_a1 = self.robotic_arm.get_angle(self.a1)
+        old_a2 = self.robotic_arm.get_angle(self.a2)
         for i in range(51):
             y = self.xy[i][0][1]
             self.robotic_arm.set_angle(self.a2, y)
@@ -34,6 +36,8 @@ class NSDFSolver:
                     self.forward_values[i][j][k][0] = pos[k][0]
                     self.forward_values[i][j][k][1] = pos[k][1]
                     self.forward_values[i][j][k][2] = pos[k][2]
+        self.robotic_arm.set_angle(self.a1, old_a1)
+        self.robotic_arm.set_angle(self.a2, old_a2)
 
     def set_angles(self, a1, a2):
         self.a1 = a1
@@ -56,3 +60,6 @@ class NSDFSolver:
         new_solver = NSDFSolver(robotic_arm)
         new_solver.set_angles(self.a1, self.a2)
         return new_solver
+
+    def getLoss(self):
+        return self.get_distance()
