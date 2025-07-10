@@ -76,9 +76,9 @@ class CDFSolver:
         print("Creating dataset for", self.robotic_arm.name)
         num_features = self.robotic_arm.nb_angles + 3
         dimensions = self.robotic_arm.nb_angles
-        samples_p = 9  # Number of samples for each dimension of the workspace
+        samples_p = 100  # Number of samples for each dimension of the workspace
         max_q_per_p = 100
-        precision_for_q = 10  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
+        precision_for_q = 50  # Higher it is, more precise the q prime are gonna be. meshgrid for possible q
         nb_samples = samples_p**3
 
         inputs = torch.full((nb_samples, max_q_per_p, num_features), float('inf'), dtype=torch.float32, device=self.device)
@@ -117,7 +117,6 @@ class CDFSolver:
         for j in range(len(p)):
             _p = p[j]
             max_index = max_q_per_p
-            index = 0
             _p = torch.tensor(_p, dtype=torch.float32, device=self.device)
 
             dist = torch.norm(joint_p - _p, dim=1)  # Calculate distance from each joint position to _p
@@ -125,12 +124,9 @@ class CDFSolver:
             mask = (dist > radius - 0.05) & (dist < radius + 0.05)
             _q_copy = _q[mask]  # Filter _q based on distance
             dist = dist[mask]  # Filter distances less than 0.1
-            for i in range(len(dist)):
-                if index >= max_index:
-                    break
-                inputs[j, index, :dimensions] = _q_copy[i]
-                inputs[j, index, dimensions:] = _p
-                index += 1
+            num_to_write = min(len(dist), max_index)  # crop to 200 max if needed
+            inputs[j, :num_to_write, :dimensions] = _q_copy[:num_to_write]
+            inputs[j, :num_to_write, dimensions:] = _p.expand(num_to_write, -1)
 
             print("Dataset Progress:", (j / len(p)) * 100, "%")
 
@@ -150,7 +146,7 @@ class CDFSolver:
             print("Dataset sample", i, ":", self.datas[i, 0, :self.robotic_arm.nb_angles], "->", self.datas[i, 0, self.robotic_arm.nb_angles:])
 
     def train(self):
-        num_epoch = 1
+        num_epoch = 500
         optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001, weight_decay=1e-5)
         self.net.train()
         print("Training started for", self.robotic_arm.name)

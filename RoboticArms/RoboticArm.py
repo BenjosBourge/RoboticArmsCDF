@@ -114,8 +114,6 @@ class RoboticArm:
             elif self.m[i] == RotationMode.Z:
                 mat = self.rot_z(a_i)
             elif self.m[i] == RotationMode.TORSO:
-                mat = self.rot_z(a_i)
-                pos_mat = pos_mat.dot(mat)
                 mat = self.m_z(self.l[i])
                 pos_mat = pos_mat.dot(mat)
                 joint_pos.append(pos_mat[0:3, 3])
@@ -147,7 +145,6 @@ class RoboticArm:
                     value = nvalue
         return value
 
-    # SDF
     def get_sdf_distance_from_pos(self, joints):
         value = 10.
         for i in range(len(joints)):
@@ -162,4 +159,37 @@ class RoboticArm:
                 nvalue = np.sqrt(dx * dx + dy * dy + dz * dz) - sphere_radius
                 if nvalue < value:
                     value = nvalue
+        return value
+
+    #NSDF
+    def get_nsdf_distance(self):
+        joints = self.forward_kinematic()
+
+        value = 10.
+        x, y, z = joints[-1]
+
+        for sphere in self.spheres:
+            sphere_pos = sphere[0]
+            sphere_radius = sphere[1]
+            dx = x - sphere_pos[0]
+            dy = y - sphere_pos[1]
+            dz = z - sphere_pos[2]
+            nvalue = np.sqrt(dx * dx + dy * dy + dz * dz) - sphere_radius
+            if nvalue < value:
+                value = nvalue
+        return value
+
+    def get_nsdf_distance_from_pos(self, joints):
+        value = 10.
+        x, y, z = joints[-1]
+
+        for sphere in self.spheres:
+            sphere_pos = sphere[0]
+            sphere_radius = sphere[1]
+            dx = x - sphere_pos[0]
+            dy = y - sphere_pos[1]
+            dz = z - sphere_pos[2]
+            nvalue = np.sqrt(dx * dx + dy * dy + dz * dz) - sphere_radius
+            if nvalue < value:
+                value = nvalue
         return value

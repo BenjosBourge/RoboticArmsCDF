@@ -6,11 +6,13 @@ from enum import Enum
 from Environment import FastNeuralScreen
 from RoboticArms import Scara
 from RoboticArms import Scara3
+from RoboticArms import Scara7
 from RoboticArms import Spherical
 from RoboticArms import TiagoPal
 
 from Solver import SDFSolver
 from Solver import CDFSolver
+from Solver import NSDFSolver
 
 class SolveMode(Enum):
     DEFAULT = 0
@@ -72,6 +74,7 @@ class Displayer:
         self.desired_robot_arm = Scara.ScaraArm()
         self.sdf_solver = SDFSolver.SDFSolver(self.robot_arm)
         self.cdf_solver = CDFSolver.CDFSolver(self.robot_arm)
+        self.nsdf_solver = NSDFSolver.NSDFSolver(self.robot_arm)
         self.screen = FastNeuralScreen.FastNeuralScreen(x, y, self.sdf_solver)
         self.my_solver = self.sdf_solver
 
@@ -105,11 +108,13 @@ class Displayer:
         self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
         self.add_button(50, self.y + 464, 100, 50, "SDF", -1)
         self.add_button(160, self.y + 464, 100, 50, "CDF", -1)
+        self.add_button(270, self.y + 464, 100, 50, "NSDF", -1)
 
         self.add_button(50, self.y + 400, 130, 50, "Scara", -1)
         self.add_button(200, self.y + 400, 130, 50, "Scara3", -1)
-        self.add_button(350, self.y + 400, 130, 50, "Spherical", -1)
-        self.add_button(500, self.y + 400, 130, 50, "TiagoPal", -1)
+        self.add_button(350, self.y + 400, 130, 50, "Scara7", -1)
+        self.add_button(500, self.y + 400, 130, 50, "Spherical", -1)
+        self.add_button(650, self.y + 400, 130, 50, "TiagoPal", -1)
 
         for i in range(self.robot_arm.nb_angles):
             slider_x = self.x
@@ -151,6 +156,9 @@ class Displayer:
         elif arm_type == "Scara3":
             self.robot_arm = Scara3.Scara3Arm()
             self.desired_robot_arm = Scara3.Scara3Arm()
+        elif arm_type == "Scara7":
+            self.robot_arm = Scara7.Scara7Arm()
+            self.desired_robot_arm = Scara7.Scara7Arm()
         elif arm_type == "Spherical":
             self.robot_arm = Spherical.Spherical()
             self.desired_robot_arm = Spherical.Spherical()
@@ -164,6 +172,7 @@ class Displayer:
             self.robot_arm.add_sphere(sphere[0][0], sphere[0][1], sphere[0][2], sphere[1])
         self.sdf_solver.change_robotic_arm(self.robot_arm)
         self.cdf_solver.change_robotic_arm(self.robot_arm)
+        self.nsdf_solver.change_robotic_arm(self.robot_arm)
         self.display_angle_1 = 0
         self.display_angle_2 = 1
         self.sliders.clear()
@@ -203,14 +212,19 @@ class Displayer:
         if self.buttons[7].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.screen.changeSolver(self.cdf_solver)
             self.my_solver = self.cdf_solver
-
         if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.change_arm("Scara")
+            self.screen.changeSolver(self.nsdf_solver)
+            self.my_solver = self.nsdf_solver
+
         if self.buttons[9].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.change_arm("Scara3")
+            self.change_arm("Scara")
         if self.buttons[10].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.change_arm("Spherical")
+            self.change_arm("Scara3")
         if self.buttons[11].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Scara7")
+        if self.buttons[12].is_hovered() and pygame.mouse.get_pressed()[0]:
+            self.change_arm("Spherical")
+        if self.buttons[13].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("TiagoPal")
 
         for slider in self.sliders:
@@ -228,6 +242,7 @@ class Displayer:
                             self.change_first_display_angle = True
                         self.sdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
                         self.cdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
+                        self.nsdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
 
         if self.solving:
             if self.mode == SolveMode.DEFAULT:
@@ -464,7 +479,6 @@ class Displayer:
     def gradient(self, delta_time):
         value = self.my_solver.get_distance()
         g = []
-        print(self.robot_arm.nb_angles)
         for i in range(self.robot_arm.nb_angles):
             v = self.robot_arm.get_angle(i)
             self.robot_arm.set_angle(i, v + 0.01)

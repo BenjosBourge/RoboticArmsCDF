@@ -30,7 +30,7 @@ def main():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-    arm = Scara3Arm()
+    arm = ScaraArm()
     solver = CDFSolver(arm)
     # CDFSolver(Scara3Arm())
     # CDFSolver(Scara7Arm())
