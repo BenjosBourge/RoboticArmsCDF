@@ -465,6 +465,7 @@ class Displayer:
             end_effector_pos = (end_effector_pos[0] / np.pi, end_effector_pos[1] / np.pi)
             end_effector_pos = (end_effector_pos[0] * 150 + middle[0] - 306, end_effector_pos[1] * -1 * 150 + middle[1])
             pygame.draw.circle(screen, colors[i], end_effector_pos, 5)
+
             i += 1
         self.draw_2D(screen)
         self.draw_3D(screen)
@@ -473,6 +474,10 @@ class Displayer:
             button.draw(screen, self.display_angle_1, self.display_angle_2)
         for slider in self.sliders:
             slider.draw()
+
+        value = self.my_solver.get_distance()
+        text = self.screen.font.render(f"Distance: {value:.2f}", True, (255, 255, 255))
+        screen.blit(text, (self.x + 306 + 80, self.y - 30))
 
 
     # Solving problems
@@ -486,9 +491,10 @@ class Displayer:
             self.robot_arm.set_angle(i, v)
         vector = np.array(g)
         length = np.linalg.norm(vector)
+        normal = vector / length * 0.5 * delta_time if length != 0 else np.zeros_like(vector)
         for i in range(self.robot_arm.nb_angles):
             if length != 0:
-                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - vector[i] / length * 0.5 * delta_time)
+                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - normal[i])
                 self.sliders[i].value = self.robot_arm.get_angle(i)
 
 
@@ -502,9 +508,19 @@ class Displayer:
             self.robot_arm.set_angle(i, v)
         vector = np.array(g)
         length = np.linalg.norm(vector)
+        normal = vector / length * 0.5 * delta_time if length != 0 else np.zeros_like(vector)
+        perp_normal = np.zeros_like(normal)
+        n = self.robot_arm.nb_angles
+        if n == 2:
+            perp_normal[0] = -normal[1]
+            perp_normal[1] = normal[0]
+        else:
+            pass
+
         for i in range(self.robot_arm.nb_angles):
             if length != 0:
-                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - vector[i] / length * 0.5 * delta_time)
+                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - perp_normal[i])
+                self.sliders[i].value = self.robot_arm.get_angle(i)
 
     def solve(self, delta_time):
         self.gradient(delta_time)

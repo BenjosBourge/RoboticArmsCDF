@@ -17,7 +17,7 @@ class RoboticArm:
 
         self.spheres = []
 
-    def set_arm(self, params):
+    def  set_arm(self, params):
         for p in params:
             self.nb_angles += 1
             self.l.append(p[0])

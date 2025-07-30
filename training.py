@@ -10,6 +10,7 @@ from RoboticArms.Scara import ScaraArm
 from RoboticArms.Scara3 import Scara3Arm
 from RoboticArms.Spherical import Spherical
 from RoboticArms.Scara7 import Scara7Arm
+from RoboticArms.TiagoPal import TiagoPal
 from Solver.CDFSolver import CDFSolver
 
 import os
@@ -18,19 +19,7 @@ from Solver.SDFSolver import SDFSolver
 
 
 def main():
-    folder = "RoboticArms/datas"
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-
-    folder = "RoboticArms/models"
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-
-    arm = ScaraArm()
+    arm = Scara7Arm()
     solver = CDFSolver(arm)
     # CDFSolver(Scara3Arm())
     # CDFSolver(Scara7Arm())
@@ -98,29 +87,17 @@ def main():
                 sphere_index -= 1
                 if sphere_index < 0:
                     sphere_index = solver.datas.shape[0] - 1
-                for i in range(solver.datas.shape[1]):
-                    datas[i, 0] = solver.datas[sphere_index, i, 0]
-                    datas[i, 1] = solver.datas[sphere_index, i, 1]
-                sphere = solver.datas[sphere_index, 0, n:n+3]
-                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
+                sphere = set_new_sphere_pos(arm, datas, n, solver, sphere, sphere_index)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_RIGHT]:
                 sphere_index += 1
                 if sphere_index >= solver.datas.shape[0]:
                     sphere_index = 0
-                for i in range(solver.datas.shape[1]):
-                    datas[i, 0] = solver.datas[sphere_index, i, 0]
-                    datas[i, 1] = solver.datas[sphere_index, i, 1]
-                sphere = solver.datas[sphere_index, 0, n:n+3]
-                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
+                sphere = set_new_sphere_pos(arm, datas, n, solver, sphere, sphere_index)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_SPACE]:
                 sphere_index = np.random.randint(0, solver.datas.shape[0])
-                for i in range(solver.datas.shape[1]):
-                    datas[i, 0] = solver.datas[sphere_index, i, 0]
-                    datas[i, 1] = solver.datas[sphere_index, i, 1]
-                sphere = solver.datas[sphere_index, 0, n:n+3]
-                arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
+                sphere = set_new_sphere_pos(arm, datas, n, solver, sphere, sphere_index)
                 timer = 0.1
             if pygame.key.get_pressed()[pygame.K_p]:
                 possible_joint_position_mode = not possible_joint_position_mode
@@ -170,6 +147,16 @@ def main():
         deltatime = clock.tick(60) / 1000.0  # Convert milliseconds to seconds
         if timer > 0:
             timer -= deltatime
+
+
+def set_new_sphere_pos(arm, datas, n, solver, sphere, sphere_index):
+    for i in range(solver.datas.shape[1]):
+        datas[i, 0] = solver.datas[sphere_index, i, 0]
+        datas[i, 1] = solver.datas[sphere_index, i, 1]
+    sphere = solver.datas[sphere_index, 0, n:n + 3]
+    arm.set_spheres(0, float(sphere[0]), float(sphere[1]), float(sphere[2]), 0.1)
+    return sphere
+
 
 if __name__ == "__main__":
     main()

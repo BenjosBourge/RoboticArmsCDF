@@ -20,9 +20,9 @@ from Solver.SDFSolver import SDFSolver
 
 class Testing:
     def __init__(self):
-        self.sdfarm = ScaraArm()
-        self.nsdfarm = ScaraArm()
-        self.cdfarm = ScaraArm()
+        self.sdfarm = Scara7Arm()
+        self.nsdfarm = Scara7Arm()
+        self.cdfarm = Scara7Arm()
         self.sdfsolver = SDFSolver(self.sdfarm)
         self.nsdfsolver = NSDFSolver(self.nsdfarm)
         self.cdfsolver = CDFSolver(self.cdfarm)
@@ -58,9 +58,9 @@ class Testing:
 
 
     def new_scene(self):
-        self.sdfarm = ScaraArm()
-        self.nsdfarm = ScaraArm()
-        self.cdfarm = ScaraArm()
+        self.sdfarm = Scara7Arm()
+        self.nsdfarm = Scara7Arm()
+        self.cdfarm = Scara7Arm()
         self.sdfsolver.robotic_arm = self.sdfarm
         self.nsdfsolver.robotic_arm = self.nsdfarm
         self.cdfsolver.robotic_arm = self.cdfarm
@@ -237,36 +237,43 @@ class Testing:
         self.cdfarm.add_sphere(new_sphere[0], new_sphere[1], new_sphere[2], new_sphere[3])
         self.spheres = [(new_sphere[0], new_sphere[1], new_sphere[2], new_sphere[3])]
 
-        if self.distance_to_sphere(self.sdfsolver) > 0.1:
+        if self.whole_distance_to_sphere(self.sdfsolver) > 0.1 and self.it_sdf >= 0:
             self.it_sdf += 1
-            self.spe_sdf = min(self.gradient(self.sdfsolver, self.spe_sdf)/4., self.max_spe)
+            #self.spe_sdf = min(self.avoidance(self.sdfsolver, self.spe_sdf)/4., self.max_spe)
+            self.avoidance(self.sdfsolver, self.max_spe)
             if self.it_sdf < 50:
                 finished = False
+        else:
+            self.it_sdf = -1
 
-        if self.distance_to_sphere(self.nsdfsolver) > 0.1:
+        if self.whole_distance_to_sphere(self.nsdfsolver) > 0.1 and self.it_nsdf >= 0:
             self.it_nsdf += 1
-            self.spe_nsdf = min(self.gradient(self.nsdfsolver, self.spe_nsdf)/4., self.max_spe)
+            self.avoidance(self.nsdfsolver, self.max_spe)
             if self.it_nsdf < 50:
                 finished = False
+        else:
+            self.it_nsdf = -1
 
-        if self.distance_to_sphere(self.cdfsolver) > 0.1:
+        if self.whole_distance_to_sphere(self.cdfsolver) > 0.1 and self.it_cdf >= 0:
             self.it_cdf += 1
-            self.spe_cdf = min(self.gradient(self.cdfsolver, self.spe_cdf)/4., self.max_spe)
+            self.avoidance(self.cdfsolver, self.max_spe)
             if self.it_cdf < 50:
                 finished = False
+        else:
+            self.it_cdf = -1
 
-        self.max_spe = max(0.001, self.max_spe - 0.01)
+        #self.max_spe = max(0.001, self.max_spe - 0.01)
         self.timer = 0.1
 
         if finished:
             self.total_it += 1
-            if self.it_sdf < 50:
+            if self.it_sdf >= 50:
                 self.success_sdf += 1
                 self.accuracy_sdf += self.it_sdf
-            if self.it_nsdf < 50:
+            if self.it_nsdf >= 50:
                 self.success_nsdf += 1
                 self.accuracy_nsdf += self.it_nsdf
-            if self.it_cdf < 50:
+            if self.it_cdf >= 50:
                 self.success_cdf += 1
                 self.accuracy_cdf += self.it_cdf
             self.new_scene()
