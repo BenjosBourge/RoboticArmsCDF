@@ -18,7 +18,7 @@ class SolveMode(Enum):
     DEFAULT = 0
     GRADIENT = 1
     GEODESIC = 2
-    SOLVE = 3
+    HAND = 3
 
 
 class Slider:
@@ -104,7 +104,7 @@ class Displayer:
         self.add_button(160, self.y + 336, 100, 50, "Default", -1)
         self.add_button(270, self.y + 336, 120, 50, "Gradient", -1)
         self.add_button(400, self.y + 336, 120, 50, "Geodesic", -1)
-        self.add_button(530, self.y + 336, 100, 50, "Solve", -1)
+        self.add_button(530, self.y + 336, 100, 50, "Hand", -1)
         self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
         self.add_button(50, self.y + 464, 100, 50, "SDF", -1)
         self.add_button(160, self.y + 464, 100, 50, "CDF", -1)
@@ -203,7 +203,7 @@ class Displayer:
             self.mode = SolveMode.GEODESIC
         if self.buttons[4].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = True
-            self.mode = SolveMode.SOLVE
+            self.mode = SolveMode.HAND
         if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.add_sphere(0, 0, 0.0, 0.5)
         if self.buttons[6].is_hovered() and pygame.mouse.get_pressed()[0]:
@@ -254,8 +254,8 @@ class Displayer:
                 self.gradient(delta_time)
             elif self.mode == SolveMode.GEODESIC:
                 self.geodesic(delta_time)
-            elif self.mode == SolveMode.SOLVE:
-                self.solve(delta_time)
+            elif self.mode == SolveMode.HAND:
+                self.hand(delta_time)
             return
 
 
@@ -515,12 +515,51 @@ class Displayer:
             perp_normal[0] = -normal[1]
             perp_normal[1] = normal[0]
         else:
-            pass
+            tmp_vec = np.arange(len(normal))
+            orth_vec = np.zeros_like(normal)
+            for j in range(n - 1):
+                orth_vec[j] = tmp_vec[j] * normal[j]
+            orth_vec[n - 1] = -np.sum(orth_vec[:n - 1])
+            tmp_vec[n - 1] = orth_vec[n - 1] / normal[n - 1] if normal[n - 1] != 0 else 0
+            perp_normal = tmp_vec
+            tmp_length = np.linalg.norm(perp_normal)
+            perp_normal = perp_normal / tmp_length * 0.5 * delta_time if tmp_length != 0 else np.zeros_like(perp_normal)
 
         for i in range(self.robot_arm.nb_angles):
             if length != 0:
                 self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - perp_normal[i])
                 self.sliders[i].value = self.robot_arm.get_angle(i)
 
-    def solve(self, delta_time):
-        self.gradient(delta_time)
+    def hand(self, delta_time):
+        joints = self.robot_arm.forward_kinematic()
+
+        value = self.robot_arm.get_nsdf_distance_from_pos([joints[-2]])
+        g = []
+        for i in range(self.robot_arm.nb_angles - 1):
+            v = self.robot_arm.get_angle(i)
+            self.robot_arm.set_angle(i, v + 0.01)
+            joints = self.robot_arm.forward_kinematic()
+            tg = self.robot_arm.get_nsdf_distance_from_pos([joints[-2]]) - value
+            if self.robot_arm.get_nsdf_distance_from_pos([joints[-2]]) < self.robot_arm.l[-1] + 0.5:
+                tg = -tg
+            g.append(tg)
+            self.robot_arm.set_angle(i, v)
+        vector = np.array(g)
+        length = np.linalg.norm(vector)
+        normal = vector / length * 0.5 * delta_time if length != 0 else np.zeros_like(vector)
+        for i in range(self.robot_arm.nb_angles - 1):
+            if length != 0:
+                self.robot_arm.set_angle(i, self.robot_arm.get_angle(i) - normal[i])
+                self.sliders[i].value = self.robot_arm.get_angle(i)
+
+        joints = self.robot_arm.forward_kinematic()
+        value = self.robot_arm.get_nsdf_distance_from_pos([joints[-1]])
+        v = self.robot_arm.get_angle(self.robot_arm.nb_angles - 1)
+        self.robot_arm.set_angle(self.robot_arm.nb_angles - 1, v + 0.01)
+        joints = self.robot_arm.forward_kinematic()
+        g = self.robot_arm.get_nsdf_distance_from_pos([joints[-1]]) - value
+        if g != 0:
+            normal = g / abs(g) * 0.5 * delta_time
+            self.robot_arm.set_angle(self.robot_arm.nb_angles - 1, self.robot_arm.get_angle(self.robot_arm.nb_angles - 1) - normal)
+            self.sliders[self.robot_arm.nb_angles - 1].value = self.robot_arm.get_angle(self.robot_arm.nb_angles - 1)
+

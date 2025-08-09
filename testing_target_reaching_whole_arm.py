@@ -37,14 +37,13 @@ class Testing:
         self.it_sdf = 0
         self.it_nsdf = 0
         self.it_cdf = 0
-        self.max_spe = 0.2
+        self.max_spe = 0.0 # changed in new scene
         self.spe_sdf = self.max_spe
         self.spe_nsdf = self.max_spe
         self.spe_cdf = self.max_spe
 
         self.timer = 0
         self.spheres = [(0, 0, 0, 0.1)]
-        self.sphere_vector = np.array((0, 0, 0))
 
         self.success_sdf = 0
         self.success_nsdf = 0
@@ -81,7 +80,7 @@ class Testing:
             vec = np.random.normal(size=2)
             vec /= np.linalg.norm(vec)
             #random between 0.1 and 4
-            vec *= np.random.uniform(0.1, 4.)
+            vec *= np.random.uniform(0.1, 3.5)
 
             sphere_pos = (vec[0], vec[1], 0)
 
@@ -93,11 +92,6 @@ class Testing:
             same_pos = distance < 1.
         radius = 0.5
         self.spheres = [(sphere_pos[0], sphere_pos[1], sphere_pos[2], radius)]
-        self.sphere_vector = np.array(sphere_pos)
-
-        # moving spheres
-        sphere_direction = end_effector_pos - sphere_pos
-        self.sphere_vector = sphere_direction / np.linalg.norm(sphere_direction)
 
         self.sdfarm.add_sphere(sphere_pos[0], sphere_pos[1], sphere_pos[2], radius)
         self.nsdfarm.add_sphere(sphere_pos[0], sphere_pos[1], sphere_pos[2], radius)
@@ -108,6 +102,8 @@ class Testing:
         self.it_sdf = 0
         self.it_nsdf = 0
         self.it_cdf = 0
+
+        self.max_spe = 1.0
 
         self.spe_sdf = self.max_spe
         self.spe_nsdf = self.max_spe
@@ -218,55 +214,42 @@ class Testing:
 
 
     def update(self, deltatime):
-        self.timer -= deltatime
+        self.timer = 0
         finished = True
 
         if self.timer > 0:
             return
 
-        sphere_speed = 0.2
-        new_sphere = self.sdfarm.spheres[0]
-        new_sphere = (new_sphere[0][0] + self.sphere_vector[0] * sphere_speed,
-                      new_sphere[0][1] + self.sphere_vector[1] * sphere_speed,
-                      new_sphere[0][2], new_sphere[1])
-        self.sdfarm.spheres = []
-        self.nsdfarm.spheres = []
-        self.cdfarm.spheres = []
-        self.sdfarm.add_sphere(new_sphere[0], new_sphere[1], new_sphere[2], new_sphere[3])
-        self.nsdfarm.add_sphere(new_sphere[0], new_sphere[1], new_sphere[2], new_sphere[3])
-        self.cdfarm.add_sphere(new_sphere[0], new_sphere[1], new_sphere[2], new_sphere[3])
-        self.spheres = [(new_sphere[0], new_sphere[1], new_sphere[2], new_sphere[3])]
-
         if self.distance_to_sphere(self.sdfsolver) > 0.1:
             self.it_sdf += 1
-            self.spe_sdf = min(self.gradient(self.sdfsolver, self.spe_sdf)/4., self.max_spe)
-            if self.it_sdf < 50:
+            self.spe_sdf = min(self.gradient(self.sdfsolver, self.spe_sdf), self.max_spe)
+            if self.it_sdf < 20:
                 finished = False
 
         if self.distance_to_sphere(self.nsdfsolver) > 0.1:
             self.it_nsdf += 1
-            self.spe_nsdf = min(self.gradient(self.nsdfsolver, self.spe_nsdf)/4., self.max_spe)
-            if self.it_nsdf < 50:
+            self.spe_nsdf = min(self.gradient(self.nsdfsolver, self.spe_nsdf) / 2., self.max_spe)
+            if self.it_nsdf < 20:
                 finished = False
 
-        if self.distance_to_sphere(self.cdfsolver) > 0.1:
+        if self.distance_to_sphere(self.cdfsolver) > 0.2:
             self.it_cdf += 1
-            self.spe_cdf = min(self.gradient(self.cdfsolver, self.spe_cdf)/4., self.max_spe)
-            if self.it_cdf < 50:
+            self.spe_cdf = min(self.gradient(self.cdfsolver, self.spe_cdf) / 2., self.max_spe)
+            if self.it_cdf < 20:
                 finished = False
 
-        self.max_spe = max(0.001, self.max_spe - 0.01)
+        self.max_spe = max(0.01, self.max_spe - 0.01)
         self.timer = 0.1
 
         if finished:
             self.total_it += 1
-            if self.it_sdf < 50:
+            if self.it_sdf < 20:
                 self.success_sdf += 1
                 self.accuracy_sdf += self.it_sdf
-            if self.it_nsdf < 50:
+            if self.it_nsdf < 20:
                 self.success_nsdf += 1
                 self.accuracy_nsdf += self.it_nsdf
-            if self.it_cdf < 50:
+            if self.it_cdf < 20:
                 self.success_cdf += 1
                 self.accuracy_cdf += self.it_cdf
             self.new_scene()
@@ -281,19 +264,22 @@ class Testing:
         self.draw_arm_2D(screen, self.cdfarm, (0, 0, 0), 800, 450)
 
         total_it = max(self.total_it, 1)  # Avoid division by zero
+        success_sdf = max(self.success_sdf, 1)  # Avoid division by zero
+        success_nsdf = max(self.success_nsdf, 1)
+        success_cdf = max(self.success_cdf, 1)
 
         text = self.sdfscreen.font.render(
-            f"SDF: {self.it_sdf} {self.success_sdf}/{total_it}, {self.accuracy_sdf / total_it:.2f} mean",
+            f"SDF: {self.it_sdf} {self.success_sdf}/{total_it}, {self.accuracy_sdf / success_sdf:.2f} mean",
             True, (255, 255, 255))
         screen.blit(text, (100, 50))
 
         text = self.nsdfscreen.font.render(
-            f"NSDF: {self.it_nsdf} {self.success_nsdf}/{total_it}, {self.accuracy_nsdf / total_it:.2f} mean",
+            f"NSDF: {self.it_nsdf} {self.success_nsdf}/{total_it}, {self.accuracy_nsdf / success_nsdf:.2f} mean",
             True, (255, 255, 255))
         screen.blit(text, (450, 50))
 
         text = self.cdfscreen.font.render(
-            f"CDF: {self.it_cdf} {self.success_cdf}/{total_it}, {self.accuracy_cdf / total_it:.2f} mean",
+            f"CDF: {self.it_cdf} {self.success_cdf}/{total_it}, {self.accuracy_cdf / success_cdf:.2f} mean",
             True, (255, 255, 255))
         screen.blit(text, (800, 50))
 
