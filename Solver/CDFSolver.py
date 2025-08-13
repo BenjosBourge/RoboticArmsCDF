@@ -409,7 +409,7 @@ class CDFSolver:
     def get_distance(self):
         if len(self.robotic_arm.spheres) == 0:
             return 10.0
-        n = 100  # Number of points to sample on the sphere
+        n = 1  # Number of points to sample on the sphere
 
         input = torch.zeros((len(self.robotic_arm.spheres) * n, self.robotic_arm.nb_angles + 3), dtype=torch.float32, device=self.device)
         for i in range(self.robotic_arm.nb_angles):

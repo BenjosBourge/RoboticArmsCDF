@@ -15,10 +15,9 @@ from Solver import CDFSolver
 from Solver import NSDFSolver
 
 class SolveMode(Enum):
-    DEFAULT = 0
-    GRADIENT = 1
-    GEODESIC = 2
-    HAND = 3
+    GRADIENT = 0
+    GEODESIC = 1
+    HAND = 2
 
 
 class Slider:
@@ -93,7 +92,7 @@ class Displayer:
         self.desired_angle_1 = 0
         self.desired_angle_2 = 0
         self.solving = False
-        self.mode = SolveMode.DEFAULT
+        self.mode = SolveMode.GRADIENT
         self.buttons = []
         self.sliders = []
 
@@ -101,11 +100,10 @@ class Displayer:
         self.add_sphere(-2.5, -2.5, 0, 0.2)  # (x, y, radius)
 
         self.add_button(50, self.y + 336, 100, 50, "Stop", -1)
-        self.add_button(160, self.y + 336, 100, 50, "Default", -1)
-        self.add_button(270, self.y + 336, 120, 50, "Gradient", -1)
-        self.add_button(400, self.y + 336, 120, 50, "Geodesic", -1)
-        self.add_button(530, self.y + 336, 100, 50, "Hand", -1)
-        self.add_button(640, self.y + 336, 150, 50, "Add Sphere", -1)
+        self.add_button(160, self.y + 336, 120, 50, "Gradient", -1)
+        self.add_button(290, self.y + 336, 120, 50, "Geodesic", -1)
+        self.add_button(420, self.y + 336, 100, 50, "Hand", -1)
+        self.add_button(530, self.y + 336, 150, 50, "Add Sphere", -1)
         self.add_button(50, self.y + 464, 100, 50, "SDF", -1)
         self.add_button(160, self.y + 464, 100, 50, "CDF", -1)
         self.add_button(270, self.y + 464, 100, 50, "NSDF", -1)
@@ -194,37 +192,34 @@ class Displayer:
             self.solving = False
         if self.buttons[1].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = True
-            self.mode = SolveMode.DEFAULT
+            self.mode = SolveMode.GRADIENT
         if self.buttons[2].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = True
-            self.mode = SolveMode.GRADIENT
+            self.mode = SolveMode.GEODESIC
         if self.buttons[3].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.solving = True
-            self.mode = SolveMode.GEODESIC
-        if self.buttons[4].is_hovered() and pygame.mouse.get_pressed()[0]:
-            self.solving = True
             self.mode = SolveMode.HAND
-        if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[4].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.add_sphere(0, 0, 0.0, 0.5)
-        if self.buttons[6].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[5].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.screen.changeSolver(self.sdf_solver)
             self.my_solver = self.sdf_solver
-        if self.buttons[7].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[6].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.screen.changeSolver(self.cdf_solver)
             self.my_solver = self.cdf_solver
-        if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[7].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.screen.changeSolver(self.nsdf_solver)
             self.my_solver = self.nsdf_solver
 
-        if self.buttons[9].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[8].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Scara")
-        if self.buttons[10].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[9].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Scara3")
-        if self.buttons[11].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[10].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Scara7")
-        if self.buttons[12].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[11].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("Spherical")
-        if self.buttons[13].is_hovered() and pygame.mouse.get_pressed()[0]:
+        if self.buttons[12].is_hovered() and pygame.mouse.get_pressed()[0]:
             self.change_arm("TiagoPal")
 
         for slider in self.sliders:
@@ -245,12 +240,7 @@ class Displayer:
                         self.nsdf_solver.set_angles(self.display_angle_1, self.display_angle_2)
 
         if self.solving:
-            if self.mode == SolveMode.DEFAULT:
-                vector = np.array([self.desired_angle_1 - self.angle_1, self.desired_angle_2 - self.angle_2])
-                length = np.linalg.norm(vector)
-                self.angle_1 += (self.desired_angle_1 - self.angle_1) / length * 0.5 * delta_time
-                self.angle_2 += (self.desired_angle_2 - self.angle_2) / length * 0.5 * delta_time
-            elif self.mode == SolveMode.GRADIENT:
+            if self.mode == SolveMode.GRADIENT:
                 self.gradient(delta_time)
             elif self.mode == SolveMode.GEODESIC:
                 self.geodesic(delta_time)
@@ -540,7 +530,7 @@ class Displayer:
             self.robot_arm.set_angle(i, v + 0.01)
             joints = self.robot_arm.forward_kinematic()
             tg = self.robot_arm.get_nsdf_distance_from_pos([joints[-2]]) - value
-            if self.robot_arm.get_nsdf_distance_from_pos([joints[-2]]) < self.robot_arm.l[-1] + 0.5:
+            if self.robot_arm.get_nsdf_distance_from_pos([joints[-2]]) < self.robot_arm.l[-1] + 0.2:
                 tg = -tg
             g.append(tg)
             self.robot_arm.set_angle(i, v)
@@ -559,7 +549,7 @@ class Displayer:
         joints = self.robot_arm.forward_kinematic()
         g = self.robot_arm.get_nsdf_distance_from_pos([joints[-1]]) - value
         if g != 0:
-            normal = g / abs(g) * 0.5 * delta_time
+            normal = g / abs(g) * 1. * delta_time
             self.robot_arm.set_angle(self.robot_arm.nb_angles - 1, self.robot_arm.get_angle(self.robot_arm.nb_angles - 1) - normal)
             self.sliders[self.robot_arm.nb_angles - 1].value = self.robot_arm.get_angle(self.robot_arm.nb_angles - 1)
 

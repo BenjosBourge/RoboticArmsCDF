@@ -52,6 +52,8 @@ def worker():
         for i in range(len(solver.robotic_arm.a)):
             if i == solver.a1 or i == solver.a2:
                 continue
+            if i >= len(global_solver.robotic_arm.a):
+                continue
             if solver.robotic_arm.a[i] != global_solver.robotic_arm.a[i]:
                 angle_changed = True
                 break
